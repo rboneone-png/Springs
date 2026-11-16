@@ -50,10 +50,10 @@ fun Row2(a: @Composable () -> Unit, b: @Composable () -> Unit) =
     }
 
 @Composable
-fun ResultCard(rows: List<Pair<String, String>>, warnings: List<String>) {
+fun ResultCard(rows: List<Pair<String, String>>, warnings: List<String>, title: String = "計算結果") {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("計算結果", style = MaterialTheme.typography.titleMedium)
+            Text(title, style = MaterialTheme.typography.titleMedium)
             rows.forEach { (k, v) ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(k); Text(v, style = MaterialTheme.typography.titleSmall)
