@@ -22,4 +22,9 @@ class SpringCalcTest {
         val r = SpringCalc.extension(2.0, 16.0, 8.0, 60.0, 80.0, 10.0, 200.0, steel)
         assertEquals(10.0 + 7.2249 * 20, r.load, 0.01)
     }
+
+    @Test fun extensionHook() {
+        val r = SpringCalc.extension(2.0, 16.0, 8.0, 60.0, 80.0, 10.0, 200.0, steel, 7.0, 4.0)
+        assertEquals(2058.4, r.hookBendingMax, 0.5); assertEquals(1114.1, r.hookTorsionMax, 0.5)
+    }
 }

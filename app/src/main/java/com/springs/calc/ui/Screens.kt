@@ -97,16 +97,18 @@ fun ExtensionScreen(u: Units) {
     val fm = remember { mutableStateOf(u.def("200", Kind.FORCE)) }
     var mat by remember { mutableStateOf(Material.all[0]) }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lw to Kind.LEN,
-        fi to Kind.FORCE, fm to Kind.FORCE))
+        fi to Kind.FORCE, fm to Kind.FORCE, r1 to Kind.LEN, r2 to Kind.LEN))
     Hint()
     MaterialPicker(u, mat) { mat = it }
     Row2({ NumField("線徑 d", u.len, d) }, { NumField("外徑 OD", u.len, od) })
     Row2({ NumField("有效圈數 Na", "圈", na) }, { NumField("自由長(鉤內) L0", u.len, l0) })
     Row2({ NumField("初張力 Fi", u.force, fi) }, { NumField("最大負荷", u.force, fm) })
     NumField("工作長度 L", u.len, lw)
+    Row2({ NumField("鉤環中心半徑 r1", u.len, r1) }, { NumField("鉤側彎半徑 r2", u.len, r2) })
     val r = runCatching {
         SpringCalc.extension(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(na)!!, l0.si(u, Kind.LEN),
-            lw.si(u, Kind.LEN), fi.si(u, Kind.FORCE), fm.si(u, Kind.FORCE), mat)
+            lw.si(u, Kind.LEN), fi.si(u, Kind.FORCE), fm.si(u, Kind.FORCE), mat,
+            r1.si(u, Kind.LEN), r2.si(u, Kind.LEN))
     }.getOrNull()
     if (r != null) ResultCard(listOf(
         "中徑 D" to "${f(u.lenOut(r.dm), 3)} ${u.len}", "旋繞比 C" to f(r.c),
@@ -114,5 +116,9 @@ fun ExtensionScreen(u: Units) {
         "本體長度" to "${f(u.lenOut(r.bodyLength), 3)} ${u.len}", "工作負荷 F" to "${f(u.forceOut(r.load))} ${u.force}",
         "工作剪應力 τ" to "${f(u.stressOut(r.stress), 1)} ${u.stress}", "初張力應力" to "${f(u.stressOut(r.initialStress), 1)} ${u.stress}",
         "最大負荷應力" to "${f(u.stressOut(r.stressMax), 1)} ${u.stress}",
+        "鉤環彎曲應力 (工作)" to "${f(u.stressOut(r.hookBending), 1)} ${u.stress}",
+        "鉤側彎扭轉應力 (工作)" to "${f(u.stressOut(r.hookTorsion), 1)} ${u.stress}",
+        "鉤環彎曲應力 (最大)" to "${f(u.stressOut(r.hookBendingMax), 1)} ${u.stress}",
+        "鉤側彎扭轉應力 (最大)" to "${f(u.stressOut(r.hookTorsionMax), 1)} ${u.stress}",
     ), r.warnings)
 }

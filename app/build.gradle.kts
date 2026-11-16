@@ -5,6 +5,7 @@ plugins {
 }
 val appVersion = (findProperty("appVersion") as String?) ?: "1.0.0"
 base.archivesName.set("SpringCalc-v$appVersion")
+val buildNumber = appVersion.substringAfterLast('.').toIntOrNull() ?: 1
 
 android {
     namespace = "com.springs.calc"
@@ -13,8 +14,15 @@ android {
         applicationId = "com.springs.calc"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
+        versionCode = buildNumber
         versionName = appVersion
+    }
+    // 固定簽章：每次 CI 產生的 APK 簽章一致，才能直接覆蓋更新
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"; keyAlias = "androiddebugkey"; keyPassword = "android"
+        }
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

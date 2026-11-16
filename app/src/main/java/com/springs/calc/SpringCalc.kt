@@ -79,10 +79,25 @@ object SpringCalc {
         val dm: Double, val c: Double, val k: Double, val bodyLength: Double,
         val load: Double, val stress: Double, val initialStress: Double,
         val stressMax: Double, val warnings: List<String>,
+        val hookBending: Double, val hookTorsion: Double,
+        val hookBendingMax: Double, val hookTorsionMax: Double,
     )
 
+    /** 全圈鉤環彎曲應力 σ = F[Ka·16D/(πd³) + 4/(πd²)]，Ka = (4C1²−C1−1)/(4C1(C1−1)), C1 = 2r1/d */
+    fun hookBending(f: Double, d: Double, dm: Double, r1: Double): Double {
+        val c1 = 2 * r1 / d
+        val ka = (4 * c1 * c1 - c1 - 1) / (4 * c1 * (c1 - 1))
+        return f * (ka * 16 * dm / (PI * d.pow(3)) + 4 / (PI * d.pow(2)))
+    }
+
+    /** 鉤環側彎處扭轉應力 τ = Kb·8FD/(πd³)，Kb = (4C2−1)/(4C2−4), C2 = 2r2/d */
+    fun hookTorsion(f: Double, d: Double, dm: Double, r2: Double): Double {
+        val c2 = 2 * r2 / d
+        return (4 * c2 - 1) / (4 * c2 - 4) * 8 * f * dm / (PI * d.pow(3))
+    }
+
     /** l0 = 兩鉤內側自由長度, lw = 工作長度, fi = 初張力(N), fMax = 最大負荷(N) */
-    fun extension(d: Double, od: Double, na: Double, l0: Double, lw: Double, fi: Double, fMax: Double, m: Material): Extension {
+    fun extension(d: Double, od: Double, na: Double, l0: Double, lw: Double, fi: Double, fMax: Double, m: Material, r1: Double = (od - d) / 2, r2: Double = 2 * d): Extension {
         val dm = meanDia(od, d); val c = index(dm, d); val k = rate(m.g, d, dm, na)
         val f = fi + k * (lw - l0)
         val w = buildList {
@@ -90,8 +105,12 @@ object SpringCalc {
             if (c > 12) add("旋繞比 C>12，初張力難控制")
             if (lw < l0) add("工作長度小於自由長度，無拉力")
             if (f < fi) add("負荷小於初張力，彈簧尚未拉開")
+            if (2 * r1 / d <= 1.0 || 2 * r2 / d <= 1.0) add("鉤環半徑過小（C1、C2 必須大於 1）")
         }
-        return Extension(dm, c, k, (na + 1) * d, f, shear(f.coerceAtLeast(0.0), dm, d), shear(fi, dm, d), shear(fMax, dm, d), w)
+        val fw = f.coerceAtLeast(0.0)
+        return Extension(dm, c, k, (na + 1) * d, f, shear(f.coerceAtLeast(0.0), dm, d), shear(fi, dm, d), shear(fMax, dm, d), w,
+            hookBending(fw, d, dm, r1), hookTorsion(fw, d, dm, r2),
+            hookBending(fMax, d, dm, r1), hookTorsion(fMax, d, dm, r2))
     }
 
     // ---------- 扭力 ----------
