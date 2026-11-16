@@ -33,8 +33,16 @@ private enum class Tab(val title: String, val icon: ImageVector) {
 @Composable
 private fun App() {
     var tab by rememberSaveable { mutableStateOf(Tab.COMP) }
+    var units by rememberSaveable { mutableStateOf(Units.METRIC) }
     Scaffold(
-        topBar = { TopAppBar(title = { Text("彈簧計算器 · ${tab.title}彈簧") }) },
+        topBar = { TopAppBar(
+            title = { Text("${tab.title}彈簧") },
+            actions = {
+                Units.entries.forEach {
+                    FilterChip(selected = units == it, onClick = { units = it },
+                        label = { Text(it.label) }, modifier = Modifier.padding(end = 8.dp))
+                }
+            }) },
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach {
@@ -47,9 +55,9 @@ private fun App() {
         Column(Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when (tab) {
-                Tab.COMP -> CompressionScreen()
-                Tab.TORS -> TorsionScreen()
-                Tab.EXT -> ExtensionScreen()
+                Tab.COMP -> CompressionScreen(units)
+                Tab.TORS -> TorsionScreen(units)
+                Tab.EXT -> ExtensionScreen(units)
             }
         }
     }

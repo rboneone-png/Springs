@@ -39,8 +39,9 @@ fun <T> Dropdown(label: String, items: List<T>, selected: T, text: (T) -> String
 }
 
 @Composable
-fun MaterialPicker(selected: Mat, onSelect: (Mat) -> Unit) =
-    Dropdown("材質", Mat.all, selected, { "${it.name}  G=${it.g.toInt()} E=${it.e.toInt()}" }, onSelect)
+fun MaterialPicker(units: Units, selected: Mat, onSelect: (Mat) -> Unit) =
+    Dropdown("材質", Mat.all, selected,
+        { "${it.name}  G=${units.modulus(it.g)} E=${units.modulus(it.e)}" }, onSelect)
 
 @Composable
 fun Row2(a: @Composable () -> Unit, b: @Composable () -> Unit) =
@@ -68,4 +69,4 @@ fun ResultCard(rows: List<Pair<String, String>>, warnings: List<String>) {
 fun f(v: Double, digits: Int = 2) = "%.${digits}f".format(v)
 
 @Composable
-fun Hint() = Text("輸入完整後即時計算。單位：mm、N、MPa。", style = MaterialTheme.typography.bodySmall)
+fun Hint() = Text("輸入完整後即時計算。可於右上角切換公制/英制。", style = MaterialTheme.typography.bodySmall)
