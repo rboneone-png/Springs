@@ -3,6 +3,9 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+val appVersion = (findProperty("appVersion") as String?) ?: "1.0.0"
+base.archivesName.set("SpringCalc-v$appVersion")
+
 android {
     namespace = "com.springs.calc"
     compileSdk = 34
@@ -11,7 +14,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = appVersion
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
