@@ -201,16 +201,16 @@ fun ExtensionDiagram() = DiagramCard(
     txt(tm, "r1", o(cx - hr - 6, y1 - hr - hr * 0.7f - 8), p.dim)
     // 鉤側彎（上下各一）與「A」放大標記
     val bend = Path().apply {
-        moveTo(o(cx + h, y1).x, o(cx + h, y1).y)
-        arcTo(Rect(o(cx + h - rr, y1), rr * k), 0f, -90f, false)
-        lineTo(o(cx + hr, y1 - hr).x, o(cx + hr, y1 - hr).y)
-        moveTo(o(cx + h, y2).x, o(cx + h, y2).y)
-        arcTo(Rect(o(cx + h - rr, y2), rr * k), 0f, 90f, false)
-        lineTo(o(cx + hr, y2 + hr).x, o(cx + hr, y2 + hr).y)
+        moveTo(o(cx - h, y1).x, o(cx - h, y1).y)
+        arcTo(Rect(o(cx - h + rr, y1), rr * k), 180f, 90f, false)
+        lineTo(o(cx - hr, y1 - hr).x, o(cx - hr, y1 - hr).y)
+        moveTo(o(cx - h, y2).x, o(cx - h, y2).y)
+        arcTo(Rect(o(cx - h + rr, y2), rr * k), 180f, -90f, false)
+        lineTo(o(cx - hr, y2 + hr).x, o(cx - hr, y2 + hr).y)
     }
     drawPath(bend, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    drawCircle(p.dim, 22f * k, o(cx + h - 6, y1 - 8), style = Stroke(1.4.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f * k, 3f * k))))
-    txt(tm, "A", o(cx + h + 26, y1 - 26), p.dim)
+    drawCircle(p.dim, 22f * k, o(cx - h + 6, y1 - 8), style = Stroke(1.4.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f * k, 3f * k))))
+    txt(tm, "A", o(cx - h - 26, y1 - 26), p.dim)
     // 拉力 F
     arrow(o(cx, topIn - 4), o(cx, topIn - 38), p.dim); txt(tm, "F", o(cx + 14, topIn - 26), p.dim)
     arrow(o(cx, botIn + 4), o(cx, botIn + 38), p.dim); txt(tm, "F", o(cx + 14, botIn + 26), p.dim)
@@ -225,16 +225,16 @@ fun ExtensionDiagram() = DiagramCard(
         drawLine(p.line, o(60f, y), o(260f, y), big, StrokeCap.Butt, alpha = a)
     drawCircle(p.line, 60f * k, o(160f, 445f), style = Stroke(big))
     val bend2 = Path().apply {
-        moveTo(o(260f, 505f).x, o(260f, 505f).y)
-        arcTo(Rect(o(220f, 505f), 40f * k), 0f, -90f, false)
-        lineTo(o(220f, 445f).x, o(220f, 445f).y)
+        moveTo(o(60f, 505f).x, o(60f, 505f).y)
+        arcTo(Rect(o(100f, 505f), 40f * k), 180f, 90f, false)
+        lineTo(o(100f, 445f).x, o(100f, 445f).y)
     }
     drawPath(bend2, p.line, style = Stroke(big, join = StrokeJoin.Round))
     drawCircle(p.dim, 3.5f * k, o(160f, 445f))
     drawLine(p.dim, o(160f, 445f), o(117.6f, 402.6f), 1.5.dp.toPx()); txt(tm, "r1", o(100f, 392f), p.dim)
-    drawCircle(p.dim, 40f * k, o(220f, 505f), style = Stroke(1.dp.toPx(), pathEffect = dash))
-    drawCircle(p.dim, 3.5f * k, o(220f, 505f))
-    drawLine(p.dim, o(220f, 505f), o(248.3f, 476.7f), 2.dp.toPx())
-    guide(o(248.3f, 476.7f), o(276f, 452f), p.dim); txt(tm, "r2", o(292f, 446f), p.dim)
+    drawCircle(p.dim, 40f * k, o(100f, 505f), style = Stroke(1.dp.toPx(), pathEffect = dash))
+    drawCircle(p.dim, 3.5f * k, o(100f, 505f))
+    drawLine(p.dim, o(100f, 505f), o(71.7f, 476.7f), 2.dp.toPx())
+    guide(o(71.7f, 476.7f), o(46f, 452f), p.dim); txt(tm, "r2", o(32f, 446f), p.dim)
     txt(tm, "r1：鉤環中心半徑　r2：鉤側彎半徑", o(180f, 562f), p.dim)
 }
