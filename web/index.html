@@ -205,18 +205,26 @@ function diagram(t){
   ${dm("a1",cx-r,cy+r+22,cx+r,cy+r+22)}${tx("OD",cx+r+20,cy+r+22)}${dm("a1",cx-rm,cy+r+44,cx+rm,cy+r+44)}${tx("D",cx+rm+16,cy+r+44)}${sec(28,cy)}</svg>`}
  const cx=150,h=40,hr=24,rr=h-hr,y1=100,y2=210,n=10;let b="";for(let i=0;i<n;i++){const y=y1+(y2-y1)/n*i;b+=`<line class="l" stroke-width="4" x1="${cx-h}" y1="${y+6}" x2="${cx+h}" y2="${y+1+(y2-y1)/n*.5}"/>`}
  const topIn=y1-2*hr,botIn=y2+2*hr;
- return `<svg viewBox="0 0 360 330" color="currentColor">${ar("a2")}${b}
+ return `<svg viewBox="0 0 360 590" color="currentColor">${ar("a2")}${b}
   <circle class="l" stroke-width="5" cx="${cx}" cy="${y1-hr}" r="${hr}"/><circle class="l" stroke-width="5" cx="${cx}" cy="${y2+hr}" r="${hr}"/>
   ${gd(cx+hr,topIn,305,topIn)}${gd(cx+hr,botIn,305,botIn)}${dm("a2",295,topIn,295,botIn)}${tx("L0",322,(topIn+botIn)/2)}
   ${gd(cx+h,y1,255,y1)}${gd(cx+h,y2,255,y2)}${dm("a2",245,y1,245,y2)}${tx("Lb",268,(y1+y2)/2)}
   <line class="d" x1="${cx}" y1="${y1-hr}" x2="${cx-hr*.7}" y2="${y1-hr-hr*.7}"/>${tx("r1",cx-hr-6,y1-hr-hr*.7-8)}
   <path class="l" stroke-width="5" d="M${cx+h},${y1} A${rr},${rr} 0 0 0 ${cx+h-rr},${y1-rr} L${cx+hr},${y1-hr}"/>
   <path class="l" stroke-width="5" d="M${cx+h},${y2} A${rr},${rr} 0 0 1 ${cx+h-rr},${y2+rr} L${cx+hr},${y2+hr}"/>
-  <circle cx="${cx+h-rr}" cy="${y1}" r="2.6" fill="var(--pri)"/>
-  <line class="d" x1="${cx+h-rr}" y1="${y1}" x2="${cx+h-rr+rr*.707}" y2="${y1-rr*.707}"/>
-  <line class="g" x1="${cx+h-rr+rr*.707}" y1="${y1-rr*.707}" x2="${cx+h+30}" y2="${y1-34}"/>${tx("r2",cx+h+42,y1-38)}
+  <circle class="d" cx="${cx+h-6}" cy="${y1-8}" r="22" stroke-dasharray="4 3"/>${tx("A",cx+h+26,y1-26)}
   <line class="d" x1="${cx}" y1="${topIn-4}" x2="${cx}" y2="${topIn-38}" marker-end="url(#a2)"/>${tx("F",cx+14,topIn-26)}
   <line class="d" x1="${cx}" y1="${botIn+4}" x2="${cx}" y2="${botIn+38}" marker-end="url(#a2)"/>${tx("F",cx+14,botIn+26)}
+  <rect class="g" x="20" y="335" width="320" height="238" rx="12"/>${tx("A 鉤環局部放大（r1、r2 位置）",180,352)}
+  <line class="l" stroke-width="9" stroke-linecap="butt" x1="60" y1="505" x2="260" y2="505"/>
+  <line class="l" stroke-width="9" stroke-linecap="butt" x1="60" y1="525" x2="260" y2="525" opacity=".45"/>
+  <line class="l" stroke-width="9" stroke-linecap="butt" x1="60" y1="545" x2="260" y2="545" opacity=".25"/>
+  <circle class="l" stroke-width="9" cx="160" cy="445" r="60"/>
+  <path class="l" stroke-width="9" d="M260,505 A40,40 0 0 0 220,465 L220,445"/>
+  <circle cx="160" cy="445" r="3.5" fill="var(--pri)"/><line class="d" x1="160" y1="445" x2="117.6" y2="402.6"/>${tx("r1",100,392)}
+  <circle class="g" cx="220" cy="505" r="40"/><circle cx="220" cy="505" r="3.5" fill="var(--pri)"/>
+  <line class="d" stroke-width="2" x1="220" y1="505" x2="248.3" y2="476.7"/><line class="g" x1="248.3" y1="476.7" x2="276" y2="452"/>${tx("r2",292,446)}
+  ${tx("r1：鉤環中心半徑　r2：鉤側彎半徑",180,562)}
   ${gd(cx-h,y2,cx-h,320)}${gd(cx+h,y2,cx+h,320)}${dm("a2",cx-h,316,cx+h,316)}${tx("OD",cx+h+20,316)}${sec(30,165)}</svg>`;
 }
 const LEG=[["d 線徑｜OD 外徑｜D 中徑 = OD − d","L0 自由長（未受力）｜L 工作長度（受壓後）","Na 有效圈數（不含兩端閉合圈）"],

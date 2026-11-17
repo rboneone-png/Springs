@@ -11,7 +11,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -32,7 +34,7 @@ import kotlin.math.sin
 private class Pal(val line: Color, val dim: Color, val text: Color)
 
 @Composable
-private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, draw: DrawScope.(TextMeasurer, Pal) -> Unit) {
+private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, aspect: Float? = null, draw: DrawScope.(TextMeasurer, Pal) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     val tm = rememberTextMeasurer()
     val pal = Pal(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onSurface)
@@ -43,7 +45,7 @@ private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, draw
                 Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null)
             }
             if (open) {
-                Canvas(Modifier.fillMaxWidth().height(heightDp.dp)) { draw(tm, pal) }
+                Canvas(Modifier.fillMaxWidth().then(if (aspect != null) Modifier.aspectRatio(aspect) else Modifier.height(heightDp.dp))) { draw(tm, pal) }
                 legend.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
         }
@@ -171,58 +173,68 @@ fun TorsionDiagram() = DiagramCard(
 fun ExtensionDiagram() = DiagramCard(
     "參數位置圖", listOf(
         "d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數",
-        "L0 自由長（兩鉤內側距離）｜L 工作長度（受拉後）｜Lb 本體長 = (Na+1)d",
-        "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力（拉開前需克服的力）",
-    ), 330,
+        "L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d",
+        "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",
+    ), 0, aspect = 360f / 590f,
 ) { tm, p ->
-    val w = size.width; val h = size.height; val wire = 5.dp.toPx()
-    val cx = w * 0.40f; val half = w * 0.12f; val hr = h * 0.07f
-    val y1 = h * 0.34f; val y2 = h * 0.66f
-    val n = 10; val step = (y2 - y1) / n
+    // 以 360×590 的設計座標繪製，再依寬度等比縮放（與網頁版 SVG 相同）
+    val k = size.width / 360f
+    fun o(x: Float, y: Float) = Offset(x * k, y * k)
+    val wire = 5f * k; val big = 9f * k
+    val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
+    val cx = 150f; val h = 40f; val hr = 24f; val rr = h - hr; val y1 = 100f; val y2 = 210f; val n = 10
+    val step = (y2 - y1) / n
     for (i in 0 until n) {
         val y = y1 + step * i
-        drawLine(p.line, Offset(cx - half, y + step * 0.6f), Offset(cx + half, y + step * 0.1f + step * 0.5f), wire * 0.8f)
+        drawLine(p.line, o(cx - h, y + 6), o(cx + h, y + 1 + step * 0.5f), wire * 0.8f, StrokeCap.Round)
     }
-    val c1 = Offset(cx, y1 - hr); val c2 = Offset(cx, y2 + hr)
-    drawCircle(p.line, hr, c1, style = Stroke(wire)); drawCircle(p.line, hr, c2, style = Stroke(wire))
-    // L0（鉤內側距離）
-    val topIn = c1.y - hr; val botIn = c2.y + hr; val xL0 = w * 0.80f
-    guide(Offset(cx + hr, topIn), Offset(xL0 + 6.dp.toPx(), topIn), p.dim)
-    guide(Offset(cx + hr, botIn), Offset(xL0 + 6.dp.toPx(), botIn), p.dim)
-    dim(Offset(xL0, topIn), Offset(xL0, botIn), p.dim); txt(tm, "L0", Offset(xL0 + 16.dp.toPx(), (topIn + botIn) / 2), p.dim)
-    // 本體長
-    val xB = w * 0.64f
-    guide(Offset(cx + half, y1), Offset(xB + 6.dp.toPx(), y1), p.dim); guide(Offset(cx + half, y2), Offset(xB + 6.dp.toPx(), y2), p.dim)
-    dim(Offset(xB, y1), Offset(xB, y2), p.dim); txt(tm, "Lb", Offset(xB + 16.dp.toPx(), (y1 + y2) / 2), p.dim)
-    // r1：鉤環半徑
-    val ang = Math.toRadians(225.0).toFloat()
-    val edge = c1 + Offset(cos(ang), -sin(ang)) * hr
-    drawLine(p.dim, c1, edge, 1.5.dp.toPx())
-    txt(tm, "r1", edge + Offset(-14.dp.toPx(), -8.dp.toPx()), p.dim)
-    // r2：鉤側彎（鉤環與本體之間的彎折處）— 畫出彎折弧、圓心與半徑線
-    val rr = half - hr
+    drawCircle(p.line, hr * k, o(cx, y1 - hr), style = Stroke(wire))
+    drawCircle(p.line, hr * k, o(cx, y2 + hr), style = Stroke(wire))
+    val topIn = y1 - 2 * hr; val botIn = y2 + 2 * hr
+    // L0（兩鉤內側距離）、Lb（本體長）
+    guide(o(cx + hr, topIn), o(305f, topIn), p.dim); guide(o(cx + hr, botIn), o(305f, botIn), p.dim)
+    dim(o(295f, topIn), o(295f, botIn), p.dim); txt(tm, "L0", o(322f, (topIn + botIn) / 2), p.dim)
+    guide(o(cx + h, y1), o(255f, y1), p.dim); guide(o(cx + h, y2), o(255f, y2), p.dim)
+    dim(o(245f, y1), o(245f, y2), p.dim); txt(tm, "Lb", o(268f, (y1 + y2) / 2), p.dim)
+    // r1
+    drawLine(p.dim, o(cx, y1 - hr), o(cx - hr * 0.7f, y1 - hr - hr * 0.7f), 1.5.dp.toPx())
+    txt(tm, "r1", o(cx - hr - 6, y1 - hr - hr * 0.7f - 8), p.dim)
+    // 鉤側彎（上下各一）與「A」放大標記
     val bend = Path().apply {
-        moveTo(cx + half, y1)
-        arcTo(androidx.compose.ui.geometry.Rect(Offset(cx + half - rr, y1), rr), 0f, -90f, false)
-        lineTo(cx + hr, y1 - hr)
-        moveTo(cx + half, y2)
-        arcTo(androidx.compose.ui.geometry.Rect(Offset(cx + half - rr, y2), rr), 0f, 90f, false)
-        lineTo(cx + hr, y2 + hr)
+        moveTo(o(cx + h, y1).x, o(cx + h, y1).y)
+        arcTo(Rect(o(cx + h - rr, y1), rr * k), 0f, -90f, false)
+        lineTo(o(cx + hr, y1 - hr).x, o(cx + hr, y1 - hr).y)
+        moveTo(o(cx + h, y2).x, o(cx + h, y2).y)
+        arcTo(Rect(o(cx + h - rr, y2), rr * k), 0f, 90f, false)
+        lineTo(o(cx + hr, y2 + hr).x, o(cx + hr, y2 + hr).y)
     }
     drawPath(bend, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    val bc = Offset(cx + half - rr, y1); val ap = bc + Offset(rr * 0.707f, -rr * 0.707f)
-    drawCircle(p.dim, 3.dp.toPx(), bc)
-    drawLine(p.dim, bc, ap, 1.5.dp.toPx())
-    guide(ap, ap + Offset(26.dp.toPx(), -30.dp.toPx()), p.dim)
-    txt(tm, "r2", ap + Offset(40.dp.toPx(), -36.dp.toPx()), p.dim)
+    drawCircle(p.dim, 22f * k, o(cx + h - 6, y1 - 8), style = Stroke(1.4.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f * k, 3f * k))))
+    txt(tm, "A", o(cx + h + 26, y1 - 26), p.dim)
     // 拉力 F
-    arrow(Offset(cx, topIn - 4.dp.toPx()), Offset(cx, topIn - 40.dp.toPx()), p.dim)
-    txt(tm, "F", Offset(cx + 14.dp.toPx(), topIn - 28.dp.toPx()), p.dim)
-    arrow(Offset(cx, botIn + 4.dp.toPx()), Offset(cx, botIn + 40.dp.toPx()), p.dim)
-    txt(tm, "F", Offset(cx + 14.dp.toPx(), botIn + 28.dp.toPx()), p.dim)
+    arrow(o(cx, topIn - 4), o(cx, topIn - 38), p.dim); txt(tm, "F", o(cx + 14, topIn - 26), p.dim)
+    arrow(o(cx, botIn + 4), o(cx, botIn + 38), p.dim); txt(tm, "F", o(cx + 14, botIn + 26), p.dim)
     // 外徑 OD
-    val yOD = h * 0.95f
-    guide(Offset(cx - half, y2), Offset(cx - half, yOD), p.dim); guide(Offset(cx + half, y2), Offset(cx + half, yOD), p.dim)
-    dim(Offset(cx - half, yOD), Offset(cx + half, yOD), p.dim); txt(tm, "OD", Offset(cx + half + 18.dp.toPx(), yOD), p.dim)
-    wireSection(tm, p, Offset(w * 0.09f, h * 0.50f))
+    guide(o(cx - h, y2), o(cx - h, 320f), p.dim); guide(o(cx + h, y2), o(cx + h, 320f), p.dim)
+    dim(o(cx - h, 316f), o(cx + h, 316f), p.dim); txt(tm, "OD", o(cx + h + 20, 316f), p.dim)
+    wireSection(tm, p, o(30f, 165f))
+    // 局部放大 A：鉤環 r1、鉤側彎 r2
+    drawRoundRect(p.dim, o(20f, 335f), Size(320f * k, 238f * k), CornerRadius(12f * k), style = Stroke(1.dp.toPx(), pathEffect = dash))
+    txt(tm, "A 鉤環局部放大（r1、r2 位置）", o(180f, 352f), p.dim)
+    for ((y, a) in listOf(505f to 1f, 525f to 0.45f, 545f to 0.25f))
+        drawLine(p.line, o(60f, y), o(260f, y), big, StrokeCap.Butt, alpha = a)
+    drawCircle(p.line, 60f * k, o(160f, 445f), style = Stroke(big))
+    val bend2 = Path().apply {
+        moveTo(o(260f, 505f).x, o(260f, 505f).y)
+        arcTo(Rect(o(220f, 505f), 40f * k), 0f, -90f, false)
+        lineTo(o(220f, 445f).x, o(220f, 445f).y)
+    }
+    drawPath(bend2, p.line, style = Stroke(big, join = StrokeJoin.Round))
+    drawCircle(p.dim, 3.5f * k, o(160f, 445f))
+    drawLine(p.dim, o(160f, 445f), o(117.6f, 402.6f), 1.5.dp.toPx()); txt(tm, "r1", o(100f, 392f), p.dim)
+    drawCircle(p.dim, 40f * k, o(220f, 505f), style = Stroke(1.dp.toPx(), pathEffect = dash))
+    drawCircle(p.dim, 3.5f * k, o(220f, 505f))
+    drawLine(p.dim, o(220f, 505f), o(248.3f, 476.7f), 2.dp.toPx())
+    guide(o(248.3f, 476.7f), o(276f, 452f), p.dim); txt(tm, "r2", o(292f, 446f), p.dim)
+    txt(tm, "r1：鉤環中心半徑　r2：鉤側彎半徑", o(180f, 562f), p.dim)
 }
