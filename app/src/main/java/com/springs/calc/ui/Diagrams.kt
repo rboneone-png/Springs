@@ -172,7 +172,7 @@ fun ExtensionDiagram() = DiagramCard(
     "參數位置圖", listOf(
         "d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數",
         "L0 自由長（兩鉤內側距離）｜L 工作長度（受拉後）｜Lb 本體長 = (Na+1)d",
-        "r1 鉤環中心半徑｜r2 鉤側彎半徑｜Fi 初張力（拉開前需克服的力）",
+        "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力（拉開前需克服的力）",
     ), 330,
 ) { tm, p ->
     val w = size.width; val h = size.height; val wire = 5.dp.toPx()
@@ -199,11 +199,22 @@ fun ExtensionDiagram() = DiagramCard(
     val edge = c1 + Offset(cos(ang), -sin(ang)) * hr
     drawLine(p.dim, c1, edge, 1.5.dp.toPx())
     txt(tm, "r1", edge + Offset(-14.dp.toPx(), -8.dp.toPx()), p.dim)
-    // r2：鉤側彎
-    val j = Offset(cx + half, y1)
-    drawCircle(p.dim, 3.dp.toPx(), j)
-    drawLine(p.dim, j, j + Offset(20.dp.toPx(), -22.dp.toPx()), 1.dp.toPx())
-    txt(tm, "r2", j + Offset(30.dp.toPx(), -28.dp.toPx()), p.dim)
+    // r2：鉤側彎（鉤環與本體之間的彎折處）— 畫出彎折弧、圓心與半徑線
+    val rr = half - hr
+    val bend = Path().apply {
+        moveTo(cx + half, y1)
+        arcTo(androidx.compose.ui.geometry.Rect(Offset(cx + half - rr, y1), rr), 0f, -90f, false)
+        lineTo(cx + hr, y1 - hr)
+        moveTo(cx + half, y2)
+        arcTo(androidx.compose.ui.geometry.Rect(Offset(cx + half - rr, y2), rr), 0f, 90f, false)
+        lineTo(cx + hr, y2 + hr)
+    }
+    drawPath(bend, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    val bc = Offset(cx + half - rr, y1); val ap = bc + Offset(rr * 0.707f, -rr * 0.707f)
+    drawCircle(p.dim, 3.dp.toPx(), bc)
+    drawLine(p.dim, bc, ap, 1.5.dp.toPx())
+    guide(ap, ap + Offset(26.dp.toPx(), -30.dp.toPx()), p.dim)
+    txt(tm, "r2", ap + Offset(40.dp.toPx(), -36.dp.toPx()), p.dim)
     // 拉力 F
     arrow(Offset(cx, topIn - 4.dp.toPx()), Offset(cx, topIn - 40.dp.toPx()), p.dim)
     txt(tm, "F", Offset(cx + 14.dp.toPx(), topIn - 28.dp.toPx()), p.dim)
