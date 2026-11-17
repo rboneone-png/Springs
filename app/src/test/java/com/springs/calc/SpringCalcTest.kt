@@ -45,4 +45,19 @@ class SpringCalcTest {
         assertEquals(473.9, r.sse, 0.5); assertEquals(0.705, r.fatigueSf, 0.01)
         assertEquals(1.234e5, r.cycles, 1.234e5 * 0.02)
     }
+
+    @Test fun strengthVerdict() {
+        assertEquals(SpringCalc.Verdict.OK, SpringCalc.strengthShear(800.0, 2000.0).verdict)
+        assertEquals(SpringCalc.Verdict.CAUTION, SpringCalc.strengthShear(1100.0, 2000.0).verdict)
+        assertEquals(SpringCalc.Verdict.FAIL, SpringCalc.strengthShear(1400.0, 2000.0).verdict)
+        assertEquals(SpringCalc.Verdict.FAIL, SpringCalc.strengthBending(1700.0, 2000.0).verdict)
+    }
+
+    @Test fun extensionLife() {
+        val e = SpringCalc.extension(2.0, 16.0, 8.0, 60.0, 80.0, 10.0, 200.0, steel, 7.0, 4.0)
+        val r = SpringCalc.extensionFatigue(2.0, e.dm, e.k, 60.0, 80.0, 60.0, 10.0, 7.0, 4.0, steel, false)
+        assertEquals("鉤環彎曲", r.governing)
+        assertEquals(3.49e4, r.cycles, 3.49e4 * 0.03)
+        assertEquals(4.45e5, r.body.cycles, 4.45e5 * 0.03)
+    }
 }

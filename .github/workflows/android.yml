@@ -3,6 +3,11 @@ on:
   push:
     branches: ['**']
   workflow_dispatch:
+    inputs:
+      version:
+        description: '正式版版本號（例如 1.0.0）；留空則發布開發版（預發行）'
+        required: false
+        default: ''
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -17,14 +22,29 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: 8.9, cache-read-only: false }
-      - run: gradle -PappVersion=1.0.${{ github.run_number }} --build-cache --parallel :app:testDebugUnitTest :app:assembleDebug
+      - name: Decide version
+        id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ver=$INPUT_VERSION" >> "$GITHUB_OUTPUT"; echo "pre=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "$INPUT_VERSION" ]; then
+            echo "版本號格式需為 x.y.z" >&2; exit 1
+          else
+            echo "ver=1.0.0-dev.${{ github.run_number }}" >> "$GITHUB_OUTPUT"; echo "pre=true" >> "$GITHUB_OUTPUT"
+          fi
+      - run: gradle -PappVersion=${{ steps.v.outputs.ver }} -PbuildNumber=${{ github.run_number }} --build-cache --parallel :app:testDebugUnitTest :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: SpringCalc-debug-apk
           path: app/build/outputs/apk/debug/*.apk
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
+          tag_name: v${{ steps.v.outputs.ver }}
+          name: ${{ steps.v.outputs.pre == 'false' && format('彈簧計算器 v{0}（正式版）', steps.v.outputs.ver) || format('v{0}（開發版）', steps.v.outputs.ver) }}
           target_commitish: ${{ github.sha }}
+          prerelease: ${{ steps.v.outputs.pre == 'true' }}
+          make_latest: ${{ steps.v.outputs.pre == 'false' }}
           files: app/build/outputs/apk/debug/*.apk
           generate_release_notes: true

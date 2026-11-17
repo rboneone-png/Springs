@@ -5,7 +5,7 @@ plugins {
 }
 val appVersion = (findProperty("appVersion") as String?) ?: "1.0.0"
 base.archivesName.set("SpringCalc-v$appVersion")
-val buildNumber = appVersion.substringAfterLast('.').toIntOrNull() ?: 1
+val buildNumber = (findProperty("buildNumber") as String?)?.toIntOrNull() ?: 1
 
 android {
     namespace = "com.springs.calc"

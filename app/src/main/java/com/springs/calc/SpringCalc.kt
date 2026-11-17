@@ -148,6 +148,45 @@ object SpringCalc {
         }
     }
 
+    // ---------- 材質強度判定 ----------
+    enum class Verdict(val label: String) { OK("✔ 合格"), CAUTION("⚠ 需預壓除應力"), FAIL("✘ 超限") }
+    data class Strength(val ratio: Double, val verdict: Verdict)
+
+    /** 剪應力 / 抗拉強度：≤0.45 合格；≤0.65 須經預壓(除應力)處理；以上超限 */
+    fun strengthShear(tau: Double, sut: Double): Strength {
+        val r = tau / sut
+        return Strength(r, when { r <= 0.45 -> Verdict.OK; r <= 0.65 -> Verdict.CAUTION; else -> Verdict.FAIL })
+    }
+
+    /** 彎曲應力 / 抗拉強度（扭力彈簧、鉤環彎曲）：≤0.65 合格；≤0.78 須除應力；以上超限 */
+    fun strengthBending(sigma: Double, sut: Double): Strength {
+        val r = sigma / sut
+        return Strength(r, when { r <= 0.65 -> Verdict.OK; r <= 0.78 -> Verdict.CAUTION; else -> Verdict.FAIL })
+    }
+
+    // ---------- 拉伸彈簧疲勞 ----------
+    data class ExtFatigue(
+        val body: Fatigue, val hookBend: Fatigue, val hookTors: Fatigue,
+        val cycles: Double, val belowThousand: Boolean, val governing: String, val warnings: List<String>,
+    )
+
+    /** 循環於 lmin(最小長度) ～ lw(工作長度)；本體、鉤環彎曲、鉤側彎扭轉三處取最短壽命 */
+    fun extensionFatigue(
+        d: Double, dm: Double, k: Double, l0: Double, lw: Double, lmin: Double, fi: Double,
+        r1: Double, r2: Double, m: Material, peened: Boolean,
+    ): ExtFatigue {
+        fun force(l: Double) = fi + k * (l - l0).coerceAtLeast(0.0)
+        val fMax = force(lw); val fMin = force(lmin)
+        val body = fatigue(shear(fMax, dm, d), shear(fMin, dm, d), d, m, peened)
+        val hb = fatigueBending(hookBending(fMax, d, dm, r1), hookBending(fMin, d, dm, r1), d, m, peened)
+        val ht = fatigue(hookTorsion(fMax, d, dm, r2), hookTorsion(fMin, d, dm, r2), d, m, peened)
+        val all = listOf("本體" to body, "鉤環彎曲" to hb, "鉤側彎扭轉" to ht)
+        val g = all.minWith(compareBy({ it.second.cycles }, { it.second.fatigueSf }))
+        val w = (body.warnings + hb.warnings + ht.warnings).distinct() +
+            (if (lmin >= lw) listOf("循環最小長度需小於工作長度") else emptyList())
+        return ExtFatigue(body, hb, ht, g.second.cycles, g.second.belowThousand, g.first, w)
+    }
+
     // ---------- 拉伸 ----------
     data class Extension(
         val dm: Double, val c: Double, val k: Double, val bodyLength: Double,
@@ -159,14 +198,14 @@ object SpringCalc {
 
     /** 全圈鉤環彎曲應力 σ = F[Ka·16D/(πd³) + 4/(πd²)]，Ka = (4C1²−C1−1)/(4C1(C1−1)), C1 = 2r1/d */
     fun hookBending(f: Double, d: Double, dm: Double, r1: Double): Double {
-        val c1 = 2 * r1 / d
+        val c1 = (2 * r1 / d).coerceAtLeast(1.05)
         val ka = (4 * c1 * c1 - c1 - 1) / (4 * c1 * (c1 - 1))
         return f * (ka * 16 * dm / (PI * d.pow(3)) + 4 / (PI * d.pow(2)))
     }
 
     /** 鉤環側彎處扭轉應力 τ = Kb·8FD/(πd³)，Kb = (4C2−1)/(4C2−4), C2 = 2r2/d */
     fun hookTorsion(f: Double, d: Double, dm: Double, r2: Double): Double {
-        val c2 = 2 * r2 / d
+        val c2 = (2 * r2 / d).coerceAtLeast(1.05)
         return (4 * c2 - 1) / (4 * c2 - 4) * 8 * f * dm / (PI * d.pow(3))
     }
 

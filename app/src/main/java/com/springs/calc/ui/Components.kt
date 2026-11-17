@@ -69,4 +69,7 @@ fun ResultCard(rows: List<Pair<String, String>>, warnings: List<String>, title: 
 fun f(v: Double, digits: Int = 2) = "%.${digits}f".format(v)
 
 @Composable
-fun Hint() = Text("輸入完整後即時計算。可於右上角切換公制/英制。", style = MaterialTheme.typography.bodySmall)
+fun Hint() = Column {
+    Text("輸入完整後即時計算。可於右上角切換公制/英制，左右滑動切換彈簧種類。", style = MaterialTheme.typography.bodySmall)
+    Text("強度判定：剪應力/Sut ≤0.45 合格，≤0.65 須預壓除應力，其上超限；彎曲應力 ≤0.65 合格，≤0.78 須除應力。", style = MaterialTheme.typography.bodySmall)
+}
