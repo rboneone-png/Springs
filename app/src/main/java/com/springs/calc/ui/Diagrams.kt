@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -169,135 +170,86 @@ fun TorsionDiagram() = DiagramCard(
     wireSection(tm, p, Offset(w * 0.07f, cy))
 }
 
-// ---------- 拉伸彈簧 ----------
+// ---------- 拉伸彈簧（仿實物照片：左圓環鉤、右長開口鉤、下方局部放大 A）----------
 @Composable
-fun ExtensionDiagram() {
-    var hook by rememberSaveable { mutableStateOf(0) }
-    DiagramCard(
-        "參數位置圖", listOf(
-            "d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數",
-            "L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d",
-            "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",
-            "圖示以圓環鉤、長開口鉤為例；其他鉤型的 r2 同樣是鉤與本體交接的彎折半徑，r1 為鉤的中心半徑",
-        ), 0, aspect = if (hook == 0) 360f / 590f else 360f / 372f,
-        controls = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp)) {
-                FilterChip(selected = hook == 0, onClick = { hook = 0 }, label = { Text("圓環鉤") })
-                FilterChip(selected = hook == 1, onClick = { hook = 1 }, label = { Text("長開口鉤") })
-            }
-        },
-    ) { tm, p -> if (hook == 0) extLoop(tm, p) else extOpen(tm, p) }
-}
-
-private fun DrawScope.extLoop(tm: TextMeasurer, p: Pal) {
-    // 以 360×590 的設計座標繪製，再依寬度等比縮放（與網頁版 SVG 相同）
+fun ExtensionDiagram() = DiagramCard(
+    "參數位置圖", listOf(
+        "d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數",
+        "L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d",
+        "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",
+        "圖左為圓環鉤、圖右為長開口鉤；其他鉤型的 r2 同樣是鉤與本體交接的彎折半徑，r1 為鉤的中心半徑。L（工作長度）與 L0 量法相同，為受拉後兩鉤內側的距離",
+    ), 0, aspect = 360f / 640f,
+) { tm, p ->
     val k = size.width / 360f
     fun o(x: Float, y: Float) = Offset(x * k, y * k)
-    val wire = 5f * k; val big = 9f * k
+    val wire = 4.6f * k; val big = 9f * k
     val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
-    val cx = 150f; val h = 40f; val hr = 24f; val rr = h - hr; val y1 = 100f; val y2 = 210f; val n = 10
-    val step = (y2 - y1) / n
-    for (i in 0 until n) {
-        val y = y1 + step * i
-        drawLine(p.line, o(cx - h, y + 6), o(cx + h, y + 1 + step * 0.5f), wire * 0.8f, StrokeCap.Round)
+    fun coils(xl: Float, xr: Float, ya: Float, yb: Float, n: Int) {
+        val st = (yb - ya) / n
+        for (i in 0 until n) { val y = ya + st * i; drawLine(p.line, o(xl, y + st * 0.9f), o(xr, y + st * 0.1f), wire, StrokeCap.Round) }
     }
-    drawCircle(p.line, hr * k, o(cx, y1 - hr), style = Stroke(wire))
-    drawCircle(p.line, hr * k, o(cx, y2 + hr), style = Stroke(wire))
-    val topIn = y1 - 2 * hr; val botIn = y2 + 2 * hr
-    // L0（兩鉤內側距離）、Lb（本體長）
-    guide(o(cx + hr, topIn), o(305f, topIn), p.dim); guide(o(cx + hr, botIn), o(305f, botIn), p.dim)
-    dim(o(295f, topIn), o(295f, botIn), p.dim); txt(tm, "L0", o(322f, (topIn + botIn) / 2), p.dim)
-    guide(o(cx + h, y1), o(255f, y1), p.dim); guide(o(cx + h, y2), o(255f, y2), p.dim)
-    dim(o(245f, y1), o(245f, y2), p.dim); txt(tm, "Lb", o(268f, (y1 + y2) / 2), p.dim)
-    // r1
-    drawLine(p.dim, o(cx, y1 - hr), o(cx - hr * 0.7f, y1 - hr - hr * 0.7f), 1.5.dp.toPx())
-    txt(tm, "r1", o(cx - hr - 6, y1 - hr - hr * 0.7f - 8), p.dim)
-    // 鉤側彎（上下各一）與「A」放大標記
-    val bend = Path().apply {
-        moveTo(o(cx - h, y1).x, o(cx - h, y1).y)
-        arcTo(Rect(o(cx - h + rr, y1), rr * k), 180f, 90f, false)
-        lineTo(o(cx - hr, y1 - hr).x, o(cx - hr, y1 - hr).y)
-        moveTo(o(cx - h, y2).x, o(cx - h, y2).y)
-        arcTo(Rect(o(cx - h + rr, y2), rr * k), 180f, -90f, false)
-        lineTo(o(cx - hr, y2 + hr).x, o(cx - hr, y2 + hr).y)
+    fun Path.mv(x: Float, y: Float) { val q = o(x, y); moveTo(q.x, q.y) }
+    fun Path.ln(x: Float, y: Float) { val q = o(x, y); lineTo(q.x, q.y) }
+    fun Path.arc(cx: Float, cy: Float, r: Float, start: Float, sweep: Float) = arcTo(Rect(o(cx, cy), r * k), start, sweep, false)
+    val h = 32f; val y1 = 110f; val y2 = 250f; val n = 14
+    // 左：圓環鉤
+    val c1 = 90f; val r = 20f; val rr = h - r; val x1l = c1 - h; val x1r = c1 + h
+    val topIn = y1 - 2 * r + 2.2f; val botIn = y2 + 2 * r - 2.2f
+    txt(tm, "圓環鉤", o(c1, 12f), p.dim); txt(tm, "長開口鉤", o(270f, 12f), p.dim)
+    coils(x1l, x1r, y1, y2, n)
+    drawCircle(p.line, r * k, o(c1, y1 - r), style = Stroke(wire)); drawCircle(p.line, r * k, o(c1, y2 + r), style = Stroke(wire))
+    val b1 = Path().apply {
+        mv(x1l, y1 + 4); arc(x1l + rr, y1 + 4, rr, 180f, 90f); ln(c1 - r, y1 - r)
+        mv(x1l, y2 - 4); arc(x1l + rr, y2 - 4, rr, 180f, -90f); ln(c1 - r, y2 + r)
     }
-    drawPath(bend, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    drawCircle(p.dim, 22f * k, o(cx - h + 6, y1 - 8), style = Stroke(1.4.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f * k, 3f * k))))
-    txt(tm, "A", o(cx - h - 26, y1 - 26), p.dim)
-    // 拉力 F
-    arrow(o(cx, topIn - 4), o(cx, topIn - 38), p.dim); txt(tm, "F", o(cx + 14, topIn - 26), p.dim)
-    arrow(o(cx, botIn + 4), o(cx, botIn + 38), p.dim); txt(tm, "F", o(cx + 14, botIn + 26), p.dim)
-    // 外徑 OD
-    guide(o(cx - h, y2), o(cx - h, 320f), p.dim); guide(o(cx + h, y2), o(cx + h, 320f), p.dim)
-    dim(o(cx - h, 316f), o(cx + h, 316f), p.dim); txt(tm, "OD", o(cx + h + 20, 316f), p.dim)
-    wireSection(tm, p, o(30f, 165f))
-    // 局部放大 A：鉤環 r1、鉤側彎 r2
-    drawRoundRect(p.dim, o(20f, 335f), Size(320f * k, 238f * k), CornerRadius(12f * k), style = Stroke(1.dp.toPx(), pathEffect = dash))
-    txt(tm, "A 鉤環局部放大（r1、r2 位置）", o(180f, 352f), p.dim)
-    for ((y, a) in listOf(505f to 1f, 525f to 0.45f, 545f to 0.25f))
-        drawLine(p.line, o(60f, y), o(260f, y), big, StrokeCap.Butt, alpha = a)
-    drawCircle(p.line, 60f * k, o(160f, 445f), style = Stroke(big))
+    drawPath(b1, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    guide(o(c1 - r, topIn), o(18f, topIn), p.dim); guide(o(c1 - r, botIn), o(18f, botIn), p.dim)
+    dim(o(26f, topIn), o(26f, botIn), p.dim)
+    rotate(-90f, pivot = o(14f, (topIn + botIn) / 2)) { txt(tm, "自由長度 L0", o(14f, (topIn + botIn) / 2), p.dim) }
+    guide(o(x1r, y1), o(146f, y1), p.dim); guide(o(x1r, y2), o(146f, y2), p.dim)
+    dim(o(140f, y1), o(140f, y2), p.dim); txt(tm, "Lb", o(156f, (y1 + y2) / 2), p.dim)
+    arrow(o(152f, 58f), o(x1r - 4, y1 + 6), p.dim); txt(tm, "線徑 d", o(166f, 50f), p.dim)
+    arrow(o(c1, y1 - 2 * r - 6), o(c1, y1 - 2 * r - 34), p.dim); txt(tm, "F", o(c1 + 14, y1 - 2 * r - 24), p.dim)
+    arrow(o(c1, y2 + 2 * r + 6), o(c1, y2 + 2 * r + 34), p.dim); txt(tm, "F", o(c1 + 14, y2 + 2 * r + 24), p.dim)
+    guide(o(x1l, y2), o(x1l, 358f), p.dim); guide(o(x1r, y2), o(x1r, 358f), p.dim)
+    dim(o(x1l, 354f), o(x1r, 354f), p.dim); txt(tm, "OD", o(x1r + 20, 354f), p.dim)
+    // 右：長開口鉤
+    val c2 = 270f; val rr2 = 10f; val rad = 18f; val lx = c2 - h + rr2
+    val yt = y1 - rr2 - 30f; val yb = y2 + rr2 + 30f; val x2l = c2 - h; val x2r = c2 + h
+    val top2 = yt - rad + 2.2f; val bot2 = yb + rad - 2.2f; val hx = lx + rad
+    val kk = rr2 * 0.7071f; val q = rad * 0.7071f
+    coils(x2l, x2r, y1, y2, n)
+    val b2 = Path().apply {
+        mv(x2l, y1 + 4); arc(lx, y1 + 4, rr2, 180f, 90f); ln(lx, yt); arc(lx + rad, yt, rad, 180f, 180f); ln(lx + 2 * rad, yt + 20)
+        mv(x2l, y2 - 4); arc(lx, y2 - 4, rr2, 180f, -90f); ln(lx, yb); arc(lx + rad, yb, rad, 180f, -180f); ln(lx + 2 * rad, yb - 20)
+    }
+    drawPath(b2, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    guide(o(lx + 2 * rad, top2), o(340f, top2), p.dim); guide(o(lx + 2 * rad, bot2), o(340f, bot2), p.dim)
+    dim(o(334f, top2), o(334f, bot2), p.dim)
+    rotate(-90f, pivot = o(350f, (top2 + bot2) / 2)) { txt(tm, "自由長度 L0", o(350f, (top2 + bot2) / 2), p.dim) }
+    drawCircle(p.dim, 3f * k, o(hx, yt)); drawLine(p.dim, o(hx, yt), o(hx - q, yt - q), 1.5.dp.toPx()); txt(tm, "r1", o(hx - q - 14, yt - q - 8), p.dim)
+    drawCircle(p.dim, rr2 * k, o(lx, y1 + 4), style = Stroke(1.dp.toPx(), pathEffect = dash)); drawCircle(p.dim, 3f * k, o(lx, y1 + 4))
+    drawLine(p.dim, o(lx, y1 + 4), o(lx - kk, y1 + 4 - kk), 2.dp.toPx())
+    guide(o(lx - kk, y1 + 4 - kk), o(lx - 30, y1 - 34), p.dim); txt(tm, "r2", o(lx - 42, y1 - 40), p.dim)
+    arrow(o(hx, top2 - 6), o(hx, top2 - 28), p.dim); txt(tm, "F", o(hx + 14, top2 - 18), p.dim)
+    arrow(o(hx, bot2 + 6), o(hx, bot2 + 28), p.dim); txt(tm, "F", o(hx + 14, bot2 + 18), p.dim)
+    // 局部放大 A（圓環鉤的 r1、r2）
+    val dy = 50f
+    fun z(x: Float, y: Float) = o(x, y + dy)
+    drawRoundRect(p.dim, z(20f, 335f), Size(320f * k, 238f * k), CornerRadius(12f * k), style = Stroke(1.dp.toPx(), pathEffect = dash))
+    txt(tm, "A 圓環鉤局部放大（r1、r2 位置）", z(180f, 352f), p.dim)
+    for ((y, a) in listOf(505f to 1f, 525f to 0.45f, 545f to 0.25f)) drawLine(p.line, z(60f, y), z(260f, y), big, StrokeCap.Butt, alpha = a)
+    drawCircle(p.line, 60f * k, z(160f, 445f), style = Stroke(big))
     val bend2 = Path().apply {
-        moveTo(o(60f, 505f).x, o(60f, 505f).y)
-        arcTo(Rect(o(100f, 505f), 40f * k), 180f, 90f, false)
-        lineTo(o(100f, 445f).x, o(100f, 445f).y)
+        moveTo(z(60f, 505f).x, z(60f, 505f).y)
+        arcTo(Rect(z(100f, 505f), 40f * k), 180f, 90f, false)
+        lineTo(z(100f, 445f).x, z(100f, 445f).y)
     }
     drawPath(bend2, p.line, style = Stroke(big, join = StrokeJoin.Round))
-    drawCircle(p.dim, 3.5f * k, o(160f, 445f))
-    drawLine(p.dim, o(160f, 445f), o(117.6f, 402.6f), 1.5.dp.toPx()); txt(tm, "r1", o(100f, 392f), p.dim)
-    drawCircle(p.dim, 40f * k, o(100f, 505f), style = Stroke(1.dp.toPx(), pathEffect = dash))
-    drawCircle(p.dim, 3.5f * k, o(100f, 505f))
-    drawLine(p.dim, o(100f, 505f), o(71.7f, 476.7f), 2.dp.toPx())
-    guide(o(71.7f, 476.7f), o(46f, 452f), p.dim); txt(tm, "r2", o(32f, 446f), p.dim)
-    txt(tm, "r1：鉤環中心半徑　r2：鉤側彎半徑", o(180f, 562f), p.dim)
-}
-
-private fun DrawScope.extOpen(tm: TextMeasurer, p: Pal) {
-    val k = size.width / 360f
-    fun o(x: Float, y: Float) = Offset(x * k, y * k)
-    val wire = 5f * k
-    val cx = 150f; val h = 40f; val rr = 14f; val rad = 20f; val y1 = 125f; val y2 = 225f; val n = 10
-    val lx = cx - h + rr; val yt = y1 - rr - 34f; val yb = y2 + rr + 34f
-    val step = (y2 - y1) / n
-    for (i in 0 until n) {
-        val y = y1 + step * i
-        drawLine(p.line, o(cx - h, y + 6), o(cx + h, y + 1 + step * 0.5f), wire * 0.8f, StrokeCap.Round)
-    }
-    val hookPath = Path().apply {
-        moveTo(o(cx - h, y1).x, o(cx - h, y1).y)
-        arcTo(Rect(o(lx, y1), rr * k), 180f, 90f, false)
-        lineTo(o(lx, yt).x, o(lx, yt).y)
-        arcTo(Rect(o(lx + rad, yt), rad * k), 180f, 180f, false)
-        lineTo(o(lx + 2 * rad, yt + 22f).x, o(lx + 2 * rad, yt + 22f).y)
-        moveTo(o(cx - h, y2).x, o(cx - h, y2).y)
-        arcTo(Rect(o(lx, y2), rr * k), 180f, -90f, false)
-        lineTo(o(lx, yb).x, o(lx, yb).y)
-        arcTo(Rect(o(lx + rad, yb), rad * k), 180f, -180f, false)
-        lineTo(o(lx + 2 * rad, yb - 22f).x, o(lx + 2 * rad, yb - 22f).y)
-    }
-    drawPath(hookPath, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    txt(tm, "長開口鉤（機械鉤）", o(250f, 22f), p.dim)
-    val hx = lx + rad; val top = yt - rad + 2.5f; val bot = yb + rad - 2.5f
-    // L0、Lb
-    guide(o(lx + 2 * rad, top), o(305f, top), p.dim); guide(o(lx + 2 * rad, bot), o(305f, bot), p.dim)
-    dim(o(295f, top), o(295f, bot), p.dim); txt(tm, "L0", o(322f, (top + bot) / 2), p.dim)
-    guide(o(cx + h, y1), o(255f, y1), p.dim); guide(o(cx + h, y2), o(255f, y2), p.dim)
-    dim(o(245f, y1), o(245f, y2), p.dim); txt(tm, "Lb", o(268f, (y1 + y2) / 2), p.dim)
-    // r1：鉤半圓的圓心與半徑線
-    val hc = rad * 0.7071f
-    drawCircle(p.dim, 3f * k, o(hx, yt))
-    drawLine(p.dim, o(hx, yt), o(hx + hc, yt - hc), 1.5.dp.toPx()); txt(tm, "r1", o(hx + hc + 16, yt - hc - 8), p.dim)
-    // r2：鉤側彎（圓心、半徑線、虛線引出）
-    val c45 = rr * 0.7071f
-    drawCircle(p.dim, rr * k, o(lx, y1), style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
-    drawCircle(p.dim, 3f * k, o(lx, y1))
-    drawLine(p.dim, o(lx, y1), o(lx - c45, y1 - c45), 2.dp.toPx())
-    guide(o(lx - c45, y1 - c45), o(lx - 40, y1 - 48), p.dim); txt(tm, "r2", o(lx - 52, y1 - 54), p.dim)
-    // 拉力 F
-    arrow(o(hx, top - 8), o(hx, top - 40), p.dim); txt(tm, "F", o(hx + 14, top - 30), p.dim)
-    arrow(o(hx, bot + 8), o(hx, bot + 40), p.dim); txt(tm, "F", o(hx + 14, bot + 30), p.dim)
-    // OD、d
-    guide(o(cx - h, y2), o(cx - h, 358f), p.dim); guide(o(cx + h, y2), o(cx + h, 358f), p.dim)
-    dim(o(cx - h, 354f), o(cx + h, 354f), p.dim); txt(tm, "OD", o(cx + h + 20, 354f), p.dim)
-    wireSection(tm, p, o(30f, 175f))
+    drawCircle(p.dim, 3.5f * k, z(160f, 445f))
+    drawLine(p.dim, z(160f, 445f), z(117.6f, 402.6f), 1.5.dp.toPx()); txt(tm, "r1", z(100f, 392f), p.dim)
+    drawCircle(p.dim, 40f * k, z(100f, 505f), style = Stroke(1.dp.toPx(), pathEffect = dash)); drawCircle(p.dim, 3.5f * k, z(100f, 505f))
+    drawLine(p.dim, z(100f, 505f), z(71.7f, 476.7f), 2.dp.toPx())
+    guide(z(71.7f, 476.7f), z(46f, 452f), p.dim); txt(tm, "r2", z(32f, 446f), p.dim)
+    txt(tm, "r1：鉤環中心半徑　r2：鉤側彎半徑", z(180f, 562f), p.dim)
 }

@@ -17,7 +17,6 @@ header h1{font-size:17px;margin:0;flex:1}
 main{max-width:1120px;margin:0 auto;padding:12px 16px 90px;touch-action:pan-y}
 .layout{display:grid;gap:0 16px}.layout>.diag{order:-1}
 @media(min-width:900px){.layout{grid-template-columns:minmax(0,1fr) 400px;align-items:start}.layout>.diag{order:1;position:sticky;top:68px}}
-.hk[hidden]{display:none}.hkseg{margin:6px 0}
 .panel{display:none}.panel.on{display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
 .card h3{margin:0 0 8px;font-size:15px}
@@ -204,22 +203,40 @@ function diagram(t){
   ${gd(ax,fy,ax+34,fy)}${dm("a1",ax+28,cy,ax+28,fy)}${tx("R",ax+42,(cy+fy)/2+14)}
   <line class="d" x1="${ax-48}" y1="${fy}" x2="${ax-6}" y2="${fy}" marker-end="url(#a1)"/>${tx("F",ax-58,fy)}
   ${dm("a1",cx-r,cy+r+22,cx+r,cy+r+22)}${tx("OD",cx+r+20,cy+r+22)}${dm("a1",cx-rm,cy+r+44,cx+rm,cy+r+44)}${tx("D",cx+rm+16,cy+r+44)}${sec(28,cy)}</svg>`}
- return `<div class="seg hkseg"><button data-hk="0" class="on">圓環鉤</button><button data-hk="1">長開口鉤</button></div><div class="hk" data-h="0">${extLoop()}</div><div class="hk" data-h="1" hidden>${extOpen()}</div>`;
+return extFig();
 }
-function extLoop(){
- const cx=150,h=40,hr=24,rr=h-hr,y1=100,y2=210,n=10;let b="";for(let i=0;i<n;i++){const y=y1+(y2-y1)/n*i;b+=`<line class="l" stroke-width="4" x1="${cx-h}" y1="${y+6}" x2="${cx+h}" y2="${y+1+(y2-y1)/n*.5}"/>`}
- const topIn=y1-2*hr,botIn=y2+2*hr;
- return `<svg viewBox="0 0 360 590" color="currentColor">${ar("a2")}${b}
-  <circle class="l" stroke-width="5" cx="${cx}" cy="${y1-hr}" r="${hr}"/><circle class="l" stroke-width="5" cx="${cx}" cy="${y2+hr}" r="${hr}"/>
-  ${gd(cx+hr,topIn,305,topIn)}${gd(cx+hr,botIn,305,botIn)}${dm("a2",295,topIn,295,botIn)}${tx("L0",322,(topIn+botIn)/2)}
-  ${gd(cx+h,y1,255,y1)}${gd(cx+h,y2,255,y2)}${dm("a2",245,y1,245,y2)}${tx("Lb",268,(y1+y2)/2)}
-  <line class="d" x1="${cx}" y1="${y1-hr}" x2="${cx-hr*.7}" y2="${y1-hr-hr*.7}"/>${tx("r1",cx-hr-6,y1-hr-hr*.7-8)}
-  <path class="l" stroke-width="5" d="M${cx-h},${y1} A${rr},${rr} 0 0 1 ${cx-h+rr},${y1-rr} L${cx-hr},${y1-hr}"/>
-  <path class="l" stroke-width="5" d="M${cx-h},${y2} A${rr},${rr} 0 0 0 ${cx-h+rr},${y2+rr} L${cx-hr},${y2+hr}"/>
-  <circle class="g" cx="${cx-h+6}" cy="${y1-8}" r="22"/>${tx("A",cx-h-26,y1-26)}
-  <line class="d" x1="${cx}" y1="${topIn-4}" x2="${cx}" y2="${topIn-38}" marker-end="url(#a2)"/>${tx("F",cx+14,topIn-26)}
-  <line class="d" x1="${cx}" y1="${botIn+4}" x2="${cx}" y2="${botIn+38}" marker-end="url(#a2)"/>${tx("F",cx+14,botIn+26)}
-  <rect class="g" x="20" y="335" width="320" height="238" rx="12"/>${tx("A 鉤環局部放大（r1、r2 位置）",180,352)}
+/* 拉伸彈簧：仿實物照片——左：圓環鉤；右：長開口鉤；下方：鉤環局部放大 A */
+function extFig(){
+ const coils=(xl,xr,y1,y2,n)=>{let o="";const st=(y2-y1)/n;for(let i=0;i<n;i++){const y=y1+st*i;o+=`<line class="l" stroke-width="4.6" x1="${xl}" y1="${y+st*.9}" x2="${xr}" y2="${y+st*.1}"/>`}return o};
+ const h=32,y1=110,y2=250,n=14;
+ // 左：圓環鉤
+ const c1=90,r=20,rr=h-r,x1l=c1-h,x1r=c1+h,topIn=y1-2*r+2.2,botIn=y2+2*r-2.2;
+ // 右：長開口鉤
+ const c2=270,rr2=10,R=18,lx=c2-h+rr2,yt=y1-rr2-30,yb=y2+rr2+30,x2l=c2-h,x2r=c2+h,top2=yt-R+2.2,bot2=yb+R-2.2,hx=lx+R,k=rr2*.7071,q=R*.7071;
+ return `<svg viewBox="0 0 360 640" color="currentColor">${ar("a2")}
+  ${tx("圓環鉤",c1,12)}${tx("長開口鉤",c2,12)}
+  ${coils(x1l,x1r,y1,y2,n)}
+  <circle class="l" stroke-width="4.6" cx="${c1}" cy="${y1-r}" r="${r}"/><circle class="l" stroke-width="4.6" cx="${c1}" cy="${y2+r}" r="${r}"/>
+  <path class="l" stroke-width="4.6" d="M${x1l},${y1+4} A${rr},${rr} 0 0 1 ${x1l+rr},${y1+4-rr} L${c1-r},${y1-r}"/>
+  <path class="l" stroke-width="4.6" d="M${x1l},${y2-4} A${rr},${rr} 0 0 0 ${x1l+rr},${y2-4+rr} L${c1-r},${y2+r}"/>
+  ${gd(c1-r,topIn,18,topIn)}${gd(c1-r,botIn,18,botIn)}${dm("a2",26,topIn,26,botIn)}
+  <text transform="translate(14,${(topIn+botIn)/2}) rotate(-90)">自由長度 L0</text>
+  ${gd(x1r,y1,146,y1)}${gd(x1r,y2,146,y2)}${dm("a2",140,y1,140,y2)}${tx("Lb",156,(y1+y2)/2)}
+  <line class="d" x1="152" y1="58" x2="${x1r-4}" y2="${y1+6}" marker-end="url(#a2)"/>${tx("線徑 d",166,50)}
+  <line class="d" x1="${c1}" y1="${y1-2*r-6}" x2="${c1}" y2="${y1-2*r-34}" marker-end="url(#a2)"/>${tx("F",c1+14,y1-2*r-24)}
+  <line class="d" x1="${c1}" y1="${y2+2*r+6}" x2="${c1}" y2="${y2+2*r+34}" marker-end="url(#a2)"/>${tx("F",c1+14,y2+2*r+24)}
+  ${gd(x1l,y2,x1l,358)}${gd(x1r,y2,x1r,358)}${dm("a2",x1l,354,x1r,354)}${tx("OD",x1r+20,354)}
+  ${coils(x2l,x2r,y1,y2,n)}
+  <path class="l" stroke-width="4.6" d="M${x2l},${y1+4} A${rr2},${rr2} 0 0 1 ${lx},${y1+4-rr2} L${lx},${yt} A${R},${R} 0 0 1 ${lx+2*R},${yt} L${lx+2*R},${yt+20}"/>
+  <path class="l" stroke-width="4.6" d="M${x2l},${y2-4} A${rr2},${rr2} 0 0 0 ${lx},${y2-4+rr2} L${lx},${yb} A${R},${R} 0 0 0 ${lx+2*R},${yb} L${lx+2*R},${yb-20}"/>
+  ${gd(lx+2*R,top2,340,top2)}${gd(lx+2*R,bot2,340,bot2)}${dm("a2",334,top2,334,bot2)}<text transform="translate(350,${(top2+bot2)/2}) rotate(-90)">自由長度 L0</text>
+  <circle cx="${hx}" cy="${yt}" r="3" fill="var(--pri)"/><line class="d" x1="${hx}" y1="${yt}" x2="${hx-q}" y2="${yt-q}"/>${tx("r1",hx-q-14,yt-q-8)}
+  <circle class="g" cx="${lx}" cy="${y1+4}" r="${rr2}"/><circle cx="${lx}" cy="${y1+4}" r="3" fill="var(--pri)"/>
+  <line class="d" stroke-width="2" x1="${lx}" y1="${y1+4}" x2="${lx-k}" y2="${y1+4-k}"/><line class="g" x1="${lx-k}" y1="${y1+4-k}" x2="${lx-30}" y2="${y1-34}"/>${tx("r2",lx-42,y1-40)}
+  <line class="d" x1="${hx}" y1="${top2-6}" x2="${hx}" y2="${top2-28}" marker-end="url(#a2)"/>${tx("F",hx+14,top2-18)}
+  <line class="d" x1="${hx}" y1="${bot2+6}" x2="${hx}" y2="${bot2+28}" marker-end="url(#a2)"/>${tx("F",hx+14,bot2+18)}
+  <g transform="translate(0,50)">
+  <rect class="g" x="20" y="335" width="320" height="238" rx="12"/>${tx("A 圓環鉤局部放大（r1、r2 位置）",180,352)}
   <line class="l" stroke-width="9" stroke-linecap="butt" x1="60" y1="505" x2="260" y2="505"/>
   <line class="l" stroke-width="9" stroke-linecap="butt" x1="60" y1="525" x2="260" y2="525" opacity=".45"/>
   <line class="l" stroke-width="9" stroke-linecap="butt" x1="60" y1="545" x2="260" y2="545" opacity=".25"/>
@@ -228,27 +245,9 @@ function extLoop(){
   <circle cx="160" cy="445" r="3.5" fill="var(--pri)"/><line class="d" x1="160" y1="445" x2="117.6" y2="402.6"/>${tx("r1",100,392)}
   <circle class="g" cx="100" cy="505" r="40"/><circle cx="100" cy="505" r="3.5" fill="var(--pri)"/>
   <line class="d" stroke-width="2" x1="100" y1="505" x2="71.7" y2="476.7"/><line class="g" x1="71.7" y1="476.7" x2="46" y2="452"/>${tx("r2",32,446)}
-  ${tx("r1：鉤環中心半徑　r2：鉤側彎半徑",180,562)}
-  ${gd(cx-h,y2,cx-h,320)}${gd(cx+h,y2,cx+h,320)}${dm("a2",cx-h,316,cx+h,316)}${tx("OD",cx+h+20,316)}${sec(30,165)}</svg>`;
+  ${tx("r1：鉤環中心半徑　r2：鉤側彎半徑",180,562)}</g></svg>`;
 }
-function extOpen(){
- const cx=150,h=40,rr=14,R=20,y1=125,y2=225,n=10,lx=cx-h+rr,yt=y1-rr-34,yb=y2+rr+34;let b="";
- for(let i=0;i<n;i++){const y=y1+(y2-y1)/n*i;b+=`<line class="l" stroke-width="4" x1="${cx-h}" y1="${y+6}" x2="${cx+h}" y2="${y+1+(y2-y1)/n*.5}"/>`}
- const hx=lx+R,top=yt-R+2.5,bot=yb+R-2.5,c45=rr*.7071,hc=R*.7071;
- return `<svg viewBox="0 0 360 372" color="currentColor">${ar("a3")}${b}
-  <path class="l" stroke-width="5" d="M${cx-h},${y1} A${rr},${rr} 0 0 1 ${lx},${y1-rr} L${lx},${yt} A${R},${R} 0 0 1 ${lx+2*R},${yt} L${lx+2*R},${yt+22}"/>
-  <path class="l" stroke-width="5" d="M${cx-h},${y2} A${rr},${rr} 0 0 0 ${lx},${y2+rr} L${lx},${yb} A${R},${R} 0 0 0 ${lx+2*R},${yb} L${lx+2*R},${yb-22}"/>
-  ${tx("長開口鉤（機械鉤）",250,22)}
-  ${gd(lx+2*R,top,305,top)}${gd(lx+2*R,bot,305,bot)}${dm("a3",295,top,295,bot)}${tx("L0",322,(top+bot)/2)}
-  ${gd(cx+h,y1,255,y1)}${gd(cx+h,y2,255,y2)}${dm("a3",245,y1,245,y2)}${tx("Lb",268,(y1+y2)/2)}
-  <circle cx="${hx}" cy="${yt}" r="3" fill="var(--pri)"/><line class="d" x1="${hx}" y1="${yt}" x2="${hx+hc}" y2="${yt-hc}"/>${tx("r1",hx+hc+16,yt-hc-8)}
-  <circle class="g" cx="${lx}" cy="${y1}" r="${rr}"/><circle cx="${lx}" cy="${y1}" r="3" fill="var(--pri)"/>
-  <line class="d" stroke-width="2" x1="${lx}" y1="${y1}" x2="${lx-c45}" y2="${y1-c45}"/><line class="g" x1="${lx-c45}" y1="${y1-c45}" x2="${lx-40}" y2="${y1-48}"/>${tx("r2",lx-52,y1-54)}
-  <line class="d" x1="${hx}" y1="${top-8}" x2="${hx}" y2="${top-40}" marker-end="url(#a3)"/>${tx("F",hx+14,top-30)}
-  <line class="d" x1="${hx}" y1="${bot+8}" x2="${hx}" y2="${bot+40}" marker-end="url(#a3)"/>${tx("F",hx+14,bot+30)}
-  ${gd(cx-h,y2,cx-h,358)}${gd(cx+h,y2,cx+h,358)}${dm("a3",cx-h,354,cx+h,354)}${tx("OD",cx+h+20,354)}${sec(30,175)}</svg>`;
-}
-const HOOKNOTE="圖示以圓環鉤、長開口鉤為例；其他鉤型的 r2 同樣是鉤與本體交接的彎折半徑，r1 為鉤的中心半徑";
+const HOOKNOTE="圖左為圓環鉤、圖右為長開口鉤；其他鉤型的 r2 同樣是鉤與本體交接的彎折半徑，r1 為鉤的中心半徑。L（工作長度）與 L0 量法相同，為受拉後兩鉤內側的距離";
 const LEG=[["d 線徑｜OD 外徑｜D 中徑 = OD − d","L0 自由長（未受力）｜L 工作長度（受壓後）","Na 有效圈數（不含兩端閉合圈）"],
  ["d 線徑｜OD 外徑｜D 中徑 = OD − d｜N 本體圈數","L1、L2 兩支臂長（由本體切點量到臂端）","θ 扭轉角｜R 受力點半徑（彈簧中心到負荷點，F 垂直於臂）"],
  ["d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數","L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d","r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",HOOKNOTE]];
@@ -356,7 +355,6 @@ document.addEventListener("click",e=>{
  else if(b.dataset.del!==undefined){const t=+b.dataset.del,c=$("#m"+t);c.children[+b.dataset.i].remove();
   [...c.children].forEach((row,i)=>{const l=row.querySelector("label"),m=FORMS[t].multi;l.dataset.lab=m.label+(i+1);const u=l.dataset.fixed||(m.kind==="none"?"":U[m.kind]);l.textContent=l.dataset.lab+" ("+(m.unit||U[m.kind])+")";
    const d=row.querySelector("button");if(d){d.dataset.i=i}});render(t)}
- else if(b.dataset.hk!==undefined){const box=b.closest("details");box.querySelectorAll(".hkseg button").forEach(x=>x.classList.toggle("on",x===b));box.querySelectorAll(".hk").forEach(x=>x.hidden=x.dataset.h!==b.dataset.hk)}
  else if(b.dataset.u){document.querySelectorAll("#useg button").forEach(x=>x.classList.toggle("on",x===b));setUnits(b.dataset.u==="i")}
  else if(b.dataset.t!==undefined&&b.parentElement.id==="nav")go(+b.dataset.t);
 });
