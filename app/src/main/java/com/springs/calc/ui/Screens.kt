@@ -95,6 +95,7 @@ fun ExtensionScreen(u: Units) {
     val na = remember { mutableStateOf("8") }; val l0 = remember { mutableStateOf(u.def("60", Kind.LEN)) }
     val lw = remember { mutableStateOf(u.def("80", Kind.LEN)) }; val fi = remember { mutableStateOf(u.def("10", Kind.FORCE)) }
     val fm = remember { mutableStateOf(u.def("200", Kind.FORCE)) }
+    val r1 = remember { mutableStateOf(u.def("7", Kind.LEN)) }; val r2 = remember { mutableStateOf(u.def("4", Kind.LEN)) }
     var mat by remember { mutableStateOf(Material.all[0]) }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lw to Kind.LEN,
         fi to Kind.FORCE, fm to Kind.FORCE, r1 to Kind.LEN, r2 to Kind.LEN))
