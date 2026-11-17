@@ -29,7 +29,7 @@ private fun lifeText(c: Double, below: Boolean, inf: String) = when {
 @Composable
 private fun PeenedSwitch(v: Boolean, on: (Boolean) -> Unit) =
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Switch(checked = v, onCheckedChange = on); Spacer(Modifier.width(8.dp)); Text("珠擊處理 (Shot peened)")
+        Switch(checked = v, onCheckedChange = on); Spacer(Modifier.width(8.dp)); Text("珠擊處理 (Shot peened)：提升零件的抗疲勞壽命與耐用度(特殊用途選用)")
     }
 
 /** 可新增/刪除的多筆輸入（工作長度、扭轉角） */
@@ -66,7 +66,7 @@ fun CompressionScreen(u: Units) {
     Row2({ NumField("線徑 d", u.len, d) }, { NumField("外徑 OD", u.len, od) })
     Row2({ NumField("有效圈數 Na", "圈", na) }, { NumField("自由長 L0", u.len, l0) })
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
-    NumField("按壓回彈長度（循環最大長度，空白＝自由長）", u.len, lmaxS)
+    NumField("壽命測試按壓回覆位置（循環最大長度，空白＝自由長）", u.len, lmaxS)
     PeenedSwitch(peened) { peened = it }
     val base = runCatching {
         SpringCalc.compression(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(na)!!, l0.si(u, Kind.LEN),
@@ -127,7 +127,7 @@ fun TorsionScreen(u: Units) {
     Row2({ NumField("本體圈數 N", "圈", nb) }, { NumField("受力點半徑 R", u.len, arm) })
     Row2({ NumField("臂長 L1", u.len, l1) }, { NumField("臂長 L2", u.len, l2) })
     MultiInput("扭轉角 θ", "度", angs, "新增扭轉角")
-    NumField("循環最小角度（預載，0＝完全放鬆）", "度", angMin)
+    NumField("壽命測試按壓回覆的位置角度（預載，0＝完全放鬆）", "度", angMin)
     PeenedSwitch(peened) { peened = it }
     val dSi = runCatching { d.si(u, Kind.LEN) }.getOrNull()
     fun calc(angle: Double) = SpringCalc.torsion(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(nb)!!,
@@ -186,7 +186,7 @@ fun ExtensionScreen(u: Units) {
     Row2({ NumField("初張力 Fi", u.force, fi) }, { NumField("最大負荷", u.force, fm) })
     Row2({ NumField("鉤環中心半徑 r1", u.len, r1) }, { NumField("鉤側彎半徑 r2", u.len, r2) })
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
-    NumField("循環最小長度（空白＝自由長，此時負荷＝初張力）", u.len, lminS)
+    NumField("壽命測試按壓回覆位置（空白＝自由長，此時負荷＝初張力）", u.len, lminS)
     PeenedSwitch(peened) { peened = it }
     fun calc(lw: Double) = SpringCalc.extension(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(na)!!,
         l0.si(u, Kind.LEN), lw, fi.si(u, Kind.FORCE), fm.si(u, Kind.FORCE), mat,

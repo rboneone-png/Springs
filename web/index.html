@@ -163,13 +163,13 @@ function card(title,rows,warns){return `<div class="card"><h3>${title}</h3>${row
 const FORMS={
  0:{fields:[["d","線徑 d","len",2],["od","外徑 OD","len",16],["na","有效圈數 Na","none",8],["l0","自由長 L0","len",60]],
     multi:{id:"lw",label:"工作長度 L",kind:"len",def:40,add:"新增工作長度"},
-    extra:[["lmax","按壓回彈長度（循環最大長度，空白＝自由長）","len",""]],ends:true},
+    extra:[["lmax","壽命測試按壓回覆位置（循環最大長度，空白＝自由長）","len",""]],ends:true},
  1:{fields:[["d","線徑 d","len",2],["od","外徑 OD","len",16],["nb","本體圈數 N","none",6],["arm","受力點半徑 R","len",30],["l1","臂長 L1","len",30],["l2","臂長 L2","len",30]],
     multi:{id:"ang",label:"扭轉角 θ",kind:"none",unit:"度",def:90,add:"新增扭轉角"},
-    extra:[["amin","循環最小角度（預載，0＝完全放鬆）","none",0,"度"]]},
+    extra:[["amin","壽命測試按壓回覆的位置角度（預載，0＝完全放鬆）","none",0,"度"]]},
  2:{fields:[["d","線徑 d","len",2],["od","外徑 OD","len",16],["na","有效圈數 Na","none",8],["l0","自由長(鉤內) L0","len",60],["fi","初張力 Fi","force",10],["fm","最大負荷","force",200],["r1","鉤環中心半徑 r1","len",7],["r2","鉤側彎半徑 r2","len",4]],
     multi:{id:"lw",label:"工作長度 L",kind:"len",def:80,add:"新增工作長度"},
-    extra:[["lmin","循環最小長度（空白＝自由長，此時負荷＝初張力）","len",""]]}
+    extra:[["lmin","壽命測試按壓回覆位置（空白＝自由長，此時負荷＝初張力）","len",""]]}
 };
 const TITLES=["壓縮彈簧","扭力彈簧","拉伸彈簧"];
 
@@ -239,7 +239,7 @@ function build(t){
   <div id="m${t}" style="margin-top:10px"></div>
   <button class="btn pri" data-add="${t}">＋ ${F.multi.add}</button>
   <div class="grid" style="margin-top:10px">${ex}
-   <div class="full sw"><input type="checkbox" id="pn${t}" data-t="${t}" data-id="peen"><label for="pn${t}" style="margin:0;color:var(--fg)">珠擊處理 (Shot peened)</label></div></div>
+   <div class="full sw"><input type="checkbox" id="pn${t}" data-t="${t}" data-id="peen"><label for="pn${t}" style="margin:0;color:var(--fg)">珠擊處理 (Shot peened)：提升零件的抗疲勞壽命與耐用度(特殊用途選用)</label></div></div>
  </div><div id="r${t}"></div></div></div>`;
  S[t]={n:1};
  $("#m"+t).innerHTML=multiRow(t,0,clean(fromSi(FORMS[t].multi.def,FORMS[t].multi.kind)));
