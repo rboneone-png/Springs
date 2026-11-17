@@ -119,6 +119,35 @@ object SpringCalc {
         }
     }
 
+    /**
+     * 扭力彈簧（線材受彎曲）疲勞：Sr = 0.45Sut（珠擊 0.67Sut，10⁶ 次，R=0 的最大應力），
+     * Se = (Sr/2)/(1−(Sr/2Sut)²)，Gerber 修正；S-N 以 10³(0.9Sut) 與 10⁶(Se) 對數內插。
+     * cycles = Infinity 代表 >10⁶ 次。
+     */
+    fun fatigueBending(sigMax: Double, sigMin: Double, d: Double, m: Material, peened: Boolean): Fatigue {
+        val sut = m.sut(d)
+        val sr = (if (peened) 0.67 else 0.45) * sut
+        val se = (sr / 2) / (1 - (sr / 2 / sut).pow(2))
+        val sm = (sigMax + sigMin) / 2; val sa = (sigMax - sigMin) / 2
+        val sf = if (sigMax > 0) 0.78 * sut / sigMax else Double.POSITIVE_INFINITY
+        val w = buildList {
+            if (!m.steel) add("疲勞係數以鋼線試驗為基礎，此材質結果僅供參考")
+            if (sigMax > 0.78 * sut) add("最大彎曲應力超過建議上限 0.78Sut，可能永久變形")
+            if (sa <= 0) add("循環應力幅為 0，無疲勞")
+        }
+        if (sa <= 0 || sm >= sut) return Fatigue(sut, sut, se, sigMax, sigMin, sf, Double.POSITIVE_INFINITY,
+            if (sa <= 0) Double.POSITIVE_INFINITY else 1.0, sa > 0, w)
+        val nf = 0.5 * (sut / sm).pow(2) * (sa / se) *
+            (-1 + kotlin.math.sqrt(1 + (2 * sm * se / (sut * sa)).pow(2)))
+        val eq = sa / (1 - (sm / sut).pow(2)); val s1 = 0.9 * sut
+        return when {
+            eq >= s1 -> Fatigue(sut, sut, se, sigMax, sigMin, sf, nf, 1e3, true, w)
+            eq <= se -> Fatigue(sut, sut, se, sigMax, sigMin, sf, nf, Double.POSITIVE_INFINITY, false, w)
+            else -> Fatigue(sut, sut, se, sigMax, sigMin, sf, nf,
+                10.0.pow(3 + 3 * kotlin.math.ln(s1 / eq) / kotlin.math.ln(s1 / se)), false, w)
+        }
+    }
+
     // ---------- 拉伸 ----------
     data class Extension(
         val dm: Double, val c: Double, val k: Double, val bodyLength: Double,

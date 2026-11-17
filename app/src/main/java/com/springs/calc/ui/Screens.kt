@@ -90,6 +90,8 @@ fun TorsionScreen(u: Units) {
     val l2 = remember { mutableStateOf(u.def("30", Kind.LEN)) }; val ang = remember { mutableStateOf("90") }
     val arm = remember { mutableStateOf(u.def("30", Kind.LEN)) }
     var mat by remember { mutableStateOf(Material.all[0]) }
+    val angMin = remember { mutableStateOf("0") }
+    var peened by remember { mutableStateOf(false) }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l1 to Kind.LEN, l2 to Kind.LEN, arm to Kind.LEN))
     Hint()
     MaterialPicker(u, mat) { mat = it }
@@ -97,17 +99,38 @@ fun TorsionScreen(u: Units) {
     Row2({ NumField("本體圈數 N", "圈", nb) }, { NumField("扭轉角 θ", "度", ang) })
     Row2({ NumField("臂長 L1", u.len, l1) }, { NumField("臂長 L2", u.len, l2) })
     NumField("受力點半徑", u.len, arm)
+    NumField("循環最小角度（預載，0＝完全放鬆）", "度", angMin)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Switch(checked = peened, onCheckedChange = { peened = it }); Spacer(Modifier.width(8.dp)); Text("珠擊處理 (Shot peened)")
+    }
     val r = runCatching {
         SpringCalc.torsion(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(nb)!!, l1.si(u, Kind.LEN),
             l2.si(u, Kind.LEN), num(ang)!!, arm.si(u, Kind.LEN), mat)
     }.getOrNull()
-    if (r != null) ResultCard(listOf(
+    if (r != null) {
+        val aMin = angMin.value.toDoubleOrNull() ?: 0.0
+        val angle = num(ang) ?: 0.0
+        val sigMin = if (angle > 0) r.stress * aMin / angle else 0.0
+        val fat = SpringCalc.fatigueBending(r.stress, sigMin, d.si(u, Kind.LEN), mat, peened)
+        val lifeText = when {
+            fat.cycles.isInfinite() -> "無限壽命 (>10⁶ 次)"
+            fat.belowThousand -> "< 10³ 次"
+            else -> "約 ${fmtCycles(fat.cycles)} 次"
+        }
+        val extraW = fat.warnings + if (aMin >= angle) listOf("最小角度需小於工作扭轉角") else emptyList()
+        ResultCard(listOf(
         "中徑 D" to "${f(u.lenOut(r.dm), 3)} ${u.len}", "旋繞比 C" to f(r.c), "等效圈數 Na" to f(r.na, 2),
         "扭力常數" to "${f(u.torqueOut(r.ratePerDeg), 3)} ${u.torqueRate}",
         "扭矩 M" to "${f(u.torqueOut(r.torque), 2)} ${u.torque}",
         "受力點負荷 F" to "${f(u.forceOut(r.force))} ${u.force}", "彎曲應力 σ" to "${f(u.stressOut(r.stress), 1)} ${u.stress}",
         "扭緊後外徑" to "${f(u.lenOut(r.closedDia), 3)} ${u.len}",
-    ), r.warnings)
+        "最小彎曲應力 σmin" to "${f(u.stressOut(sigMin), 1)} ${u.stress}",
+        "抗拉強度 Sut" to "${f(u.stressOut(fat.sut), 0)} ${u.stress}",
+        "靜態安全係數" to (if (fat.staticSf.isInfinite()) "∞" else f(fat.staticSf, 2)),
+        "疲勞安全係數 (10⁶)" to (if (fat.fatigueSf.isInfinite()) "∞" else f(fat.fatigueSf, 2)),
+        "預估壽命" to lifeText,
+    ), r.warnings + extraW)
+    }
 }
 
 @Composable

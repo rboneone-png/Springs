@@ -39,4 +39,10 @@ class SpringCalcTest {
         val r = SpringCalc.fatigue(500.0, 0.0, 2.0, steel, false)
         assertEquals(Double.POSITIVE_INFINITY, r.cycles, 0.0)
     }
+
+    @Test fun torsionFatigue() {
+        val r = SpringCalc.fatigueBending(1275.47, 0.0, 2.0, steel, false)
+        assertEquals(473.9, r.sse, 0.5); assertEquals(0.705, r.fatigueSf, 0.01)
+        assertEquals(1.234e5, r.cycles, 1.234e5 * 0.02)
+    }
 }
