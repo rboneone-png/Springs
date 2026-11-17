@@ -35,6 +35,8 @@ jobs:
             echo "ver=1.0.0-dev.${{ github.run_number }}" >> "$GITHUB_OUTPUT"; echo "pre=true" >> "$GITHUB_OUTPUT"
           fi
       - run: gradle -PappVersion=${{ steps.v.outputs.ver }} -PbuildNumber=${{ github.run_number }} --build-cache --parallel :app:testDebugUnitTest :app:assembleDebug
+      - name: Package web version
+        run: cp web/index.html "SpringCalc-web-v${{ steps.v.outputs.ver }}.html"
       - uses: actions/upload-artifact@v4
         with:
           name: SpringCalc-debug-apk
@@ -46,5 +48,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: ${{ steps.v.outputs.pre == 'true' }}
           make_latest: ${{ steps.v.outputs.pre == 'false' }}
-          files: app/build/outputs/apk/debug/*.apk
+          files: |
+            app/build/outputs/apk/debug/*.apk
+            SpringCalc-web-v${{ steps.v.outputs.ver }}.html
           generate_release_notes: true

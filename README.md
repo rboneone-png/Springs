@@ -14,3 +14,8 @@ Kotlin + Jetpack Compose + Material3。三個分頁：壓縮 / 扭力 / 拉伸�
 - 拉伸：F = Fi + k(L−L0)
 - 拉伸鉤環：σ = F[Ka·16D/(πd³)+4/(πd²)]，τ = Kb·8FD/(πd³)
 - 扭力：Na = N + (L1+L2)/(3πD)；k = E·d⁴/(3667·D·Na) [N·mm/°]；σ = Ki·32M/(πd³)
+
+## 網頁版（HTML）
+`web/index.html` 為單一檔案、無外部相依，雙擊即可在任何瀏覽器（含手機）離線使用；功能與 APP 相同
+（三種彈簧、公英制切換、多筆工作長度/扭轉角、強度判定、疲勞壽命、參數位置圖、左右滑動切換）。
+每次 CI 發布都會把它以 `SpringCalc-web-v<版本>.html` 附在 Release。
