@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '正式版版本號（例如 1.0.0）；留空則發布開發版（預發行）'
+        description: '指定版本號（例如 1.1.0）；留空則自動為最新正式版的修訂號 +1'
         required: false
         default: ''
 concurrency:
@@ -26,14 +26,23 @@ jobs:
         id: v
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           if [[ "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "ver=$INPUT_VERSION" >> "$GITHUB_OUTPUT"; echo "pre=false" >> "$GITHUB_OUTPUT"
+            ver="$INPUT_VERSION"
           elif [ -n "$INPUT_VERSION" ]; then
             echo "版本號格式需為 x.y.z" >&2; exit 1
           else
-            echo "ver=1.0.0-dev.${{ github.run_number }}" >> "$GITHUB_OUTPUT"; echo "pre=true" >> "$GITHUB_OUTPUT"
+            # 一般更新：取目前最高的正式版號，修訂號 +1
+            last=$(gh release list --limit 200 --json tagName,isPrerelease \
+              --jq '[.[] | select(.isPrerelease | not) | .tagName | select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")) | ltrimstr("v")] | sort_by(split(".") | map(tonumber)) | last // "1.0.0"')
+            IFS=. read -r ma mi pa <<< "$last"
+            ver="$ma.$mi.$((pa+1))"
           fi
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          echo "pre=false" >> "$GITHUB_OUTPUT"
+          echo "版本：$ver"
       - run: gradle -PappVersion=${{ steps.v.outputs.ver }} -PbuildNumber=${{ github.run_number }} --build-cache --parallel :app:testDebugUnitTest :app:assembleDebug
       - name: Package web version
         run: cp web/index.html "SpringCalc-web-v${{ steps.v.outputs.ver }}.html"

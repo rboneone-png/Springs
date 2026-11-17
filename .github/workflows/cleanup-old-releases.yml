@@ -1,0 +1,22 @@
+name: Cleanup old test releases (one-off)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete releases + tags v1.0.6 ... v1.0.19
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for n in $(seq 6 19); do
+            tag="v1.0.$n"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release delete "$tag" --cleanup-tag --yes && echo "deleted $tag"
+            else
+              echo "skip $tag (no release)"
+            fi
+          done
