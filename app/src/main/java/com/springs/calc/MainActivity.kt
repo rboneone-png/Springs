@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -15,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.springs.calc.ui.*
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +35,9 @@ private enum class Tab(val title: String, val icon: ImageVector) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun App() {
-    var tab by rememberSaveable { mutableStateOf(Tab.COMP) }
+    val pagerState = rememberPagerState { Tab.entries.size }
+    val scope = rememberCoroutineScope()
+    val tab = Tab.entries[pagerState.currentPage]
     var units by rememberSaveable { mutableStateOf(Units.METRIC) }
     Scaffold(
         topBar = { TopAppBar(
@@ -46,18 +51,21 @@ private fun App() {
         bottomBar = {
             NavigationBar {
                 Tab.entries.forEach {
-                    NavigationBarItem(selected = tab == it, onClick = { tab = it },
+                    NavigationBarItem(selected = tab == it, onClick = { scope.launch { pagerState.animateScrollToPage(it.ordinal) } },
                         icon = { Icon(it.icon, null) }, label = { Text(it.title) })
                 }
             }
         },
     ) { pad ->
-        Column(Modifier.padding(pad).padding(16.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            when (tab) {
-                Tab.COMP -> CompressionScreen(units)
-                Tab.TORS -> TorsionScreen(units)
-                Tab.EXT -> ExtensionScreen(units)
+        // 左右滑動切換；beyondViewportPageCount 讓三頁都保留，輸入內容不會因切換而消失
+        HorizontalPager(pagerState, Modifier.padding(pad).fillMaxSize(), beyondViewportPageCount = 2) { page ->
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                when (Tab.entries[page]) {
+                    Tab.COMP -> CompressionScreen(units)
+                    Tab.TORS -> TorsionScreen(units)
+                    Tab.EXT -> ExtensionScreen(units)
+                }
             }
         }
     }
