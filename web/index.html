@@ -14,7 +14,9 @@ header h1{font-size:17px;margin:0;flex:1}
 .seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
 .seg button{border:0;background:none;color:var(--fg);padding:6px 12px;font:inherit;cursor:pointer}
 .seg button.on{background:var(--pri);color:var(--pri-fg)}
-main{max-width:720px;margin:0 auto;padding:12px 16px 90px;touch-action:pan-y}
+main{max-width:1120px;margin:0 auto;padding:12px 16px 90px;touch-action:pan-y}
+.layout{display:grid;gap:0 16px}.layout>.diag{order:-1}
+@media(min-width:900px){.layout{grid-template-columns:minmax(0,1fr) 400px;align-items:start}.layout>.diag{order:1;position:sticky;top:68px}}
 .panel{display:none}.panel.on{display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
 .card h3{margin:0 0 8px;font-size:15px}
@@ -229,7 +231,7 @@ function build(t){
  const F=FORMS[t],p=$("#p"+t);
  const core=F.fields.map(x=>fieldHTML(t,x)).join("");
  const ex=F.extra.map(x=>fieldHTML(t,x)).join("");
- p.innerHTML=`<details class="card"><summary>參數位置圖</summary>${diagram(t)}${LEG[t].map(x=>`<div class="small">${x}</div>`).join("")}</details>
+ p.innerHTML=`<div class="layout"><aside class="diag"><details class="card" open><summary>參數位置圖</summary>${diagram(t)}${LEG[t].map(x=>`<div class="small">${x}</div>`).join("")}</details></aside><div class="col">
  <div class="card"><div class="grid">
   <div class="full"><label>材質</label><select data-t="${t}" data-id="mat">${MATS.map((m,i)=>`<option value="${i}">${m.n}</option>`).join("")}</select></div>
   ${F.ends?`<div class="full"><label>端部型式</label><select data-t="${t}" data-id="end">${Object.entries(ENDS).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join("")}</select></div>`:""}
@@ -238,7 +240,7 @@ function build(t){
   <button class="btn pri" data-add="${t}">＋ ${F.multi.add}</button>
   <div class="grid" style="margin-top:10px">${ex}
    <div class="full sw"><input type="checkbox" id="pn${t}" data-t="${t}" data-id="peen"><label for="pn${t}" style="margin:0;color:var(--fg)">珠擊處理 (Shot peened)</label></div></div>
- </div><div id="r${t}"></div>`;
+ </div><div id="r${t}"></div></div></div>`;
  S[t]={n:1};
  $("#m"+t).innerHTML=multiRow(t,0,clean(fromSi(FORMS[t].multi.def,FORMS[t].multi.kind)));
 }
