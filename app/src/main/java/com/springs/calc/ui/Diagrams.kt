@@ -170,7 +170,7 @@ fun TorsionDiagram() = DiagramCard(
     wireSection(tm, p, Offset(w * 0.07f, cy))
 }
 
-// ---------- 拉伸彈簧（仿實物照片：左圓環鉤、右長開口鉤、下方局部放大 A）----------
+// ---------- 拉伸彈簧（仿實物照片：左圓環鉤、右長開口鉤）----------
 @Composable
 fun ExtensionDiagram() = DiagramCard(
     "參數位置圖", listOf(
@@ -178,11 +178,11 @@ fun ExtensionDiagram() = DiagramCard(
         "L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d",
         "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",
         "圖左為圓環鉤、圖右為長開口鉤；其他鉤型的 r2 同樣是鉤與本體交接的彎折半徑，r1 為鉤的中心半徑。L（工作長度）與 L0 量法相同，為受拉後兩鉤內側的距離",
-    ), 0, aspect = 360f / 640f,
+    ), 0, aspect = 360f / 372f,
 ) { tm, p ->
     val k = size.width / 360f
     fun o(x: Float, y: Float) = Offset(x * k, y * k)
-    val wire = 4.6f * k; val big = 9f * k
+    val wire = 4.6f * k
     val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
     fun coils(xl: Float, xr: Float, ya: Float, yb: Float, n: Int) {
         val st = (yb - ya) / n
@@ -233,23 +233,4 @@ fun ExtensionDiagram() = DiagramCard(
     guide(o(lx - kk, y1 + 4 - kk), o(lx - 30, y1 - 34), p.dim); txt(tm, "r2", o(lx - 42, y1 - 40), p.dim)
     arrow(o(hx, top2 - 6), o(hx, top2 - 28), p.dim); txt(tm, "F", o(hx + 14, top2 - 18), p.dim)
     arrow(o(hx, bot2 + 6), o(hx, bot2 + 28), p.dim); txt(tm, "F", o(hx + 14, bot2 + 18), p.dim)
-    // 局部放大 A（圓環鉤的 r1、r2）
-    val dy = 50f
-    fun z(x: Float, y: Float) = o(x, y + dy)
-    drawRoundRect(p.dim, z(20f, 335f), Size(320f * k, 238f * k), CornerRadius(12f * k), style = Stroke(1.dp.toPx(), pathEffect = dash))
-    txt(tm, "A 圓環鉤局部放大（r1、r2 位置）", z(180f, 352f), p.dim)
-    for ((y, a) in listOf(505f to 1f, 525f to 0.45f, 545f to 0.25f)) drawLine(p.line, z(60f, y), z(260f, y), big, StrokeCap.Butt, alpha = a)
-    drawCircle(p.line, 60f * k, z(160f, 445f), style = Stroke(big))
-    val bend2 = Path().apply {
-        moveTo(z(60f, 505f).x, z(60f, 505f).y)
-        arcTo(Rect(z(100f, 505f), 40f * k), 180f, 90f, false)
-        lineTo(z(100f, 445f).x, z(100f, 445f).y)
-    }
-    drawPath(bend2, p.line, style = Stroke(big, join = StrokeJoin.Round))
-    drawCircle(p.dim, 3.5f * k, z(160f, 445f))
-    drawLine(p.dim, z(160f, 445f), z(117.6f, 402.6f), 1.5.dp.toPx()); txt(tm, "r1", z(100f, 392f), p.dim)
-    drawCircle(p.dim, 40f * k, z(100f, 505f), style = Stroke(1.dp.toPx(), pathEffect = dash)); drawCircle(p.dim, 3.5f * k, z(100f, 505f))
-    drawLine(p.dim, z(100f, 505f), z(71.7f, 476.7f), 2.dp.toPx())
-    guide(z(71.7f, 476.7f), z(46f, 452f), p.dim); txt(tm, "r2", z(32f, 446f), p.dim)
-    txt(tm, "r1：鉤環中心半徑　r2：鉤側彎半徑", z(180f, 562f), p.dim)
 }
