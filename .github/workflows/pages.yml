@@ -1,0 +1,32 @@
+name: Deploy web (GitHub Pages)
+on:
+  workflow_dispatch:
+  push:
+    paths: ['web/**', '.github/workflows/pages.yml']
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish web/index.html to gh-pages branch
+        run: |
+          rm -rf "$RUNNER_TEMP/site" && mkdir "$RUNNER_TEMP/site"
+          cp web/index.html "$RUNNER_TEMP/site/index.html" && touch "$RUNNER_TEMP/site/.nojekyll"
+          cd "$RUNNER_TEMP/site"
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "Deploy web ($GITHUB_SHA)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
+      - name: Enable Pages (source gh-pages) and print URL
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/pages" -f "source[branch]=gh-pages" -f "source[path]=/" || echo "::warning::無法自動啟用 Pages（權限不足或已啟用），請到 Settings → Pages 選 gh-pages 分支"
+          gh api "repos/${{ github.repository }}/pages" --jq '.html_url' || true
