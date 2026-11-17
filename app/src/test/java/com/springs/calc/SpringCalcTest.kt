@@ -65,4 +65,11 @@ class SpringCalcTest {
         val r = SpringCalc.initialTension(2.0, 14.0)
         assertEquals(24.85, r.fi, 0.05); assertEquals(19.62, r.fiLo, 0.05); assertEquals(30.09, r.fiHi, 0.05)
     }
+
+    @Test fun allowableLoad() {
+        val k = SpringCalc.rate(steel.g, 2.0, 14.0, 8.0)
+        val a = SpringCalc.allowableLoad(2.0, 14.0, k, 60.0, 24.853, steel.sut(2.0), 7.0, 4.0)
+        assertEquals(166.5, a.fBody, 0.5); assertEquals(126.3, a.fHookBend, 0.5); assertEquals(161.5, a.fHookTors, 0.5)
+        assertEquals("鉤環彎曲", a.governing); assertEquals(74.04, a.lMax, 0.1)
+    }
 }

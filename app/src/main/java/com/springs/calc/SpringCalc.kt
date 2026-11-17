@@ -202,6 +202,19 @@ object SpringCalc {
         return InitTension(f(tau), f(tau - tol), f(tau + tol), tau, tau - tol, tau + tol)
     }
 
+    // ---------- 拉伸彈簧：材質容許最大負荷 ----------
+    data class AllowLoad(val fBody: Double, val fHookBend: Double, val fHookTors: Double,
+                         val f: Double, val governing: String, val lMax: Double)
+
+    /** 以強度判定「合格」上限反推負荷：本體 τ≤0.45Sut、鉤環彎曲 σ≤0.65Sut、鉤側彎 τ≤0.45Sut；取最小者 */
+    fun allowableLoad(d: Double, dm: Double, k: Double, l0: Double, fi: Double, sut: Double, r1: Double, r2: Double): AllowLoad {
+        val fb = 0.45 * sut / shear(1.0, dm, d)
+        val fhb = 0.65 * sut / hookBending(1.0, d, dm, r1)
+        val fht = 0.45 * sut / hookTorsion(1.0, d, dm, r2)
+        val g = listOf("本體" to fb, "鉤環彎曲" to fhb, "鉤側彎扭轉" to fht).minBy { it.second }
+        return AllowLoad(fb, fhb, fht, g.second, g.first, l0 + ((g.second - fi) / k).coerceAtLeast(0.0))
+    }
+
     // ---------- 拉伸 ----------
     data class Extension(
         val dm: Double, val c: Double, val k: Double, val bodyLength: Double,

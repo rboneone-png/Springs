@@ -182,7 +182,8 @@ fun ExtensionScreen(u: Units) {
     val lws = remember { mutableStateListOf(mutableStateOf(u.def("80", Kind.LEN))) }
     val fi = remember { mutableStateOf("") }
     var fiAuto by remember { mutableStateOf(true) }
-    val fm = remember { mutableStateOf(u.def("200", Kind.FORCE)) }
+    val fm = remember { mutableStateOf("") }
+    var fmAuto by remember { mutableStateOf(true) }
     val r1 = remember { mutableStateOf(u.def("7", Kind.LEN)) }; val r2 = remember { mutableStateOf(u.def("4", Kind.LEN)) }
     val lminS = remember { mutableStateOf("") }
     var peened by remember { mutableStateOf(false) }
@@ -197,17 +198,37 @@ fun ExtensionScreen(u: Units) {
         if (fiAuto && autoFi != null)
             fi.value = "%.3f".format(u.fromSi(autoFi.fi, Kind.FORCE)).trimEnd('0').trimEnd('.')
     }
+    // 最大負荷：預設取「最大工作長度」對應的負荷（可手動修改，按「自動」恢復）
+    val naV = na.value.toDoubleOrNull(); val l0V = l0.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) }
+    val fiV = fi.value.toDoubleOrNull()?.let { u.toSi(it, Kind.FORCE) }
+    val r1V = r1.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) }; val r2V = r2.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) }
+    val lMaxV = lws.mapNotNull { it.value.toDoubleOrNull() }.maxOrNull()?.let { u.toSi(it, Kind.LEN) }
+    val kV = if (dSi != null && odSi != null && naV != null && naV > 0 && odSi > dSi && dSi > 0) SpringCalc.rate(mat.g, dSi, odSi - dSi, naV) else null
+    val autoFm = if (kV != null && l0V != null && fiV != null) fiV + kV * ((lMaxV ?: l0V) - l0V).coerceAtLeast(0.0) else null
+    val allow = if (kV != null && l0V != null && fiV != null && r1V != null && r2V != null && dSi != null && odSi != null)
+        SpringCalc.allowableLoad(dSi, odSi - dSi, kV, l0V, fiV, mat.sut(dSi), r1V, r2V) else null
+    LaunchedEffect(fmAuto, autoFm, u) {
+        if (fmAuto && autoFm != null) fm.value = "%.3f".format(u.fromSi(autoFm, Kind.FORCE)).trimEnd('0').trimEnd('.')
+    }
     Hint()
     ExtensionDiagram()
     MaterialPicker(u, mat) { mat = it }
     Row2({ NumField("線徑 d", u.len, d) }, { NumField("外徑 OD", u.len, od) })
     Row2({ NumField("有效圈數 Na", "圈", na) }, { NumField("自由長(鉤內) L0", u.len, l0) })
-    Row2({ NumField("初張力 Fi", u.force, fi) { fiAuto = false } }, { NumField("最大負荷", u.force, fm) })
+    Row2({ NumField("初張力 Fi", u.force, fi) { fiAuto = false } }, { NumField("最大負荷", u.force, fm) { fmAuto = false } })
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { fiAuto = true }, enabled = !fiAuto) { Text("自動") }
         Text(
             if (autoFi == null) "初張力：請先輸入線徑與外徑"
             else "初張力：${if (fiAuto) "自動計算" else "手動輸入"}｜建議範圍 ${f(u.forceOut(autoFi.fiLo), 2)}～${f(u.forceOut(autoFi.fiHi), 2)} ${u.force}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { fmAuto = true }, enabled = !fmAuto) { Text("自動") }
+        Text(
+            "最大負荷：${if (fmAuto) "自動（依最大工作長度）" else "手動輸入"}" +
+                (allow?.let { "｜材質容許上限 ${f(u.forceOut(it.f), 2)} ${u.force}（${it.governing}控制，對應 L≈${f(u.lenOut(it.lMax), 2)} ${u.len}）" } ?: ""),
             style = MaterialTheme.typography.bodySmall,
         )
     }
@@ -221,6 +242,12 @@ fun ExtensionScreen(u: Units) {
     val base = runCatching { calc(l0.si(u, Kind.LEN)) }.getOrNull()
     if (base != null) {
         val dSi = d.si(u, Kind.LEN); val sut = mat.sut(dSi)
+        val allowRows = allow?.let {
+            listOf(
+                "容許最大負荷（${it.governing}控制）" to "${f(u.forceOut(it.f), 2)} ${u.force}",
+                "　對應最大工作長度" to "${f(u.lenOut(it.lMax), 2)} ${u.len}",
+            )
+        } ?: emptyList()
         val initS = SpringCalc.strengthShear(base.initialStress, sut)
         val maxS = SpringCalc.strengthShear(base.stressMax, sut)
         val hbS = SpringCalc.strengthBending(base.hookBendingMax, sut)
@@ -234,7 +261,7 @@ fun ExtensionScreen(u: Units) {
             "最大負荷應力" to "${f(u.stressOut(base.stressMax), 1)} ${u.stress}", sRow("　判定 τ/Sut", maxS),
             "最大負荷鉤環彎曲" to "${f(u.stressOut(base.hookBendingMax), 1)} ${u.stress}", sRow("　判定 σ/Sut", hbS),
             "最大負荷鉤側彎扭轉" to "${f(u.stressOut(base.hookTorsionMax), 1)} ${u.stress}", sRow("　判定 τ/Sut", htS),
-        ), base.warnings.filter { !it.startsWith("工作長度") && !it.startsWith("負荷小於") } +
+        ) + allowRows, base.warnings.filter { !it.startsWith("工作長度") && !it.startsWith("負荷小於") } +
             sWarn("最大負荷本體", maxS) + sWarn("最大負荷鉤環彎曲", hbS) + sWarn("最大負荷鉤側彎", htS),
             title = "彈簧基本參數")
         val lMinSi = lminS.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) } ?: l0.si(u, Kind.LEN)
