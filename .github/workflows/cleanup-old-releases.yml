@@ -1,10 +1,13 @@
 name: Cleanup old test releases (one-off)
 on:
   workflow_dispatch:
+  push:
+    paths: ['.github/workflows/cleanup-old-releases.yml']
 permissions:
   contents: write
 jobs:
   cleanup:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-cleanup]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Delete releases + tags v1.0.6 ... v1.0.19
