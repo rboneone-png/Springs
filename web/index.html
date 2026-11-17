@@ -212,7 +212,7 @@ function extFig(){
  // 左：圓環鉤
  const c1=90,r=20,rr=h-r,x1l=c1-h,x1r=c1+h,topIn=y1-2*r+2.2,botIn=y2+2*r-2.2;
  // 右：長開口鉤
- const c2=270,rr2=10,R=18,lx=c2-h+rr2,yt=y1-rr2-30,yb=y2+rr2+30,x2l=c2-h,x2r=c2+h,top2=yt-R+2.2,bot2=yb+R-2.2,hx=lx+R,k=rr2*.7071,q=R*.7071;
+ const c2=270,rr2=10,R=18,lx=c2-h+rr2,yt=y1-rr2-30,yb=y2+rr2+30,x2l=c2-h,x2r=c2+h,top2=yt-R+2.2,bot2=yb+R-2.2,hx=lx+R,q=R*.7071;
  return `<svg viewBox="0 0 360 372" color="currentColor">${ar("a2")}
   ${tx("圓環鉤",c1,12)}${tx("長開口鉤",c2,12)}
   ${coils(x1l,x1r,y1,y2,n)}
@@ -231,8 +231,6 @@ function extFig(){
   <path class="l" stroke-width="4.6" d="M${x2l},${y2-4} A${rr2},${rr2} 0 0 0 ${lx},${y2-4+rr2} L${lx},${yb} A${R},${R} 0 0 0 ${lx+2*R},${yb} L${lx+2*R},${yb-20}"/>
   ${gd(lx+2*R,top2,340,top2)}${gd(lx+2*R,bot2,340,bot2)}${dm("a2",334,top2,334,bot2)}<text transform="translate(350,${(top2+bot2)/2}) rotate(-90)">自由長度 L0</text>
   <circle cx="${hx}" cy="${yt}" r="3" fill="var(--pri)"/><line class="d" x1="${hx}" y1="${yt}" x2="${hx-q}" y2="${yt-q}"/>${tx("r1",hx-q-14,yt-q-8)}
-  <circle class="g" cx="${lx}" cy="${y1+4}" r="${rr2}"/><circle cx="${lx}" cy="${y1+4}" r="3" fill="var(--pri)"/>
-  <line class="d" stroke-width="2" x1="${lx}" y1="${y1+4}" x2="${lx-k}" y2="${y1+4-k}"/><line class="g" x1="${lx-k}" y1="${y1+4-k}" x2="${lx-30}" y2="${y1-34}"/>${tx("r2",lx-42,y1-40)}
   <line class="d" x1="${hx}" y1="${top2-6}" x2="${hx}" y2="${top2-28}" marker-end="url(#a2)"/>${tx("F",hx+14,top2-18)}
   <line class="d" x1="${hx}" y1="${bot2+6}" x2="${hx}" y2="${bot2+28}" marker-end="url(#a2)"/>${tx("F",hx+14,bot2+18)}
 </svg>`;

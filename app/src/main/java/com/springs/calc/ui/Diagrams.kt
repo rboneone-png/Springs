@@ -217,7 +217,7 @@ fun ExtensionDiagram() = DiagramCard(
     val c2 = 270f; val rr2 = 10f; val rad = 18f; val lx = c2 - h + rr2
     val yt = y1 - rr2 - 30f; val yb = y2 + rr2 + 30f; val x2l = c2 - h; val x2r = c2 + h
     val top2 = yt - rad + 2.2f; val bot2 = yb + rad - 2.2f; val hx = lx + rad
-    val kk = rr2 * 0.7071f; val q = rad * 0.7071f
+    val q = rad * 0.7071f
     coils(x2l, x2r, y1, y2, n)
     val b2 = Path().apply {
         mv(x2l, y1 + 4); arc(lx, y1 + 4, rr2, 180f, 90f); ln(lx, yt); arc(lx + rad, yt, rad, 180f, 180f); ln(lx + 2 * rad, yt + 20)
@@ -228,9 +228,6 @@ fun ExtensionDiagram() = DiagramCard(
     dim(o(334f, top2), o(334f, bot2), p.dim)
     rotate(-90f, pivot = o(350f, (top2 + bot2) / 2)) { txt(tm, "自由長度 L0", o(350f, (top2 + bot2) / 2), p.dim) }
     drawCircle(p.dim, 3f * k, o(hx, yt)); drawLine(p.dim, o(hx, yt), o(hx - q, yt - q), 1.5.dp.toPx()); txt(tm, "r1", o(hx - q - 14, yt - q - 8), p.dim)
-    drawCircle(p.dim, rr2 * k, o(lx, y1 + 4), style = Stroke(1.dp.toPx(), pathEffect = dash)); drawCircle(p.dim, 3f * k, o(lx, y1 + 4))
-    drawLine(p.dim, o(lx, y1 + 4), o(lx - kk, y1 + 4 - kk), 2.dp.toPx())
-    guide(o(lx - kk, y1 + 4 - kk), o(lx - 30, y1 - 34), p.dim); txt(tm, "r2", o(lx - 42, y1 - 40), p.dim)
     arrow(o(hx, top2 - 6), o(hx, top2 - 28), p.dim); txt(tm, "F", o(hx + 14, top2 - 18), p.dim)
     arrow(o(hx, bot2 + 6), o(hx, bot2 + 28), p.dim); txt(tm, "F", o(hx + 14, bot2 + 18), p.dim)
 }
