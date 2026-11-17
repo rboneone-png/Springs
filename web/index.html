@@ -71,6 +71,7 @@ const ENDS={cg:{n:"閉端磨平",nt:a=>a+2,ls:(a,d)=>(a+2)*d},c:{n:"閉端不磨
 const wahl=c=>(4*c-1)/(4*c-4)+.615/c;
 const shear=(f,D,d)=>wahl(D/d)*8*f*D/(PI*d**3);
 const rate=(G,d,D,na)=>G*d**4/(8*D**3*na);
+const initialTension=(d,D)=>{const c=D/d,tau=33.5*6.894757/Math.exp(.105*c),tol=6.894757*(4-(c-3)/6.5),f=t=>Math.max(PI*d**3*t/(8*D),0);return {fi:f(tau),lo:f(tau-tol),hi:f(tau+tol)}};
 const hookBending=(f,d,D,r1)=>{const c1=Math.max(2*r1/d,1.05);const ka=(4*c1*c1-c1-1)/(4*c1*(c1-1));return f*(ka*16*D/(PI*d**3)+4/(PI*d*d))};
 const hookTorsion=(f,d,D,r2)=>{const c2=Math.max(2*r2/d,1.05);return (4*c2-1)/(4*c2-4)*8*f*D/(PI*d**3)};
 const strengthShear=(t,s)=>{const r=t/s;return {r,v:r<=.45?0:r<=.65?1:2}};
@@ -138,14 +139,14 @@ function extensionFatigue(d,D,k,l0,lw,lmin,fi,r1,r2,m,peen){
  const w=[...new Set([...body.w,...hb.w,...ht.w])];if(lmin>=lw)w.push("循環最小長度需小於工作長度");
  return {body,hb,ht,N:all[0][1].N,below:all[0][1].below,gov:all[0][0],w};
 }
-if(typeof module!=="undefined")module.exports={MATS,compression,fatigue,fatigueBending,torsion,extension,extensionFatigue,strengthShear,strengthBending,sut};
+if(typeof module!=="undefined")module.exports={initialTension,MATS,compression,fatigue,fatigueBending,torsion,extension,extensionFatigue,strengthShear,strengthBending,sut};
 </script>
 
 <script id="ui">
 /* ===== 介面 ===== */
 const $=(s,r=document)=>r.querySelector(s);
 const LEN=25.4,FRC=4.4482216,PSI=145.0377;
-let imp=false;
+let imp=false,FIAUTO=true;
 const U={get len(){return imp?"in":"mm"},get force(){return imp?"lbf":"N"},get stress(){return imp?"psi":"MPa"},
  get rate(){return imp?"lbf/in":"N/mm"},get tq(){return imp?"lbf·in":"N·mm"},get tqr(){return imp?"lbf·in/°":"N·mm/°"}};
 const fac=k=>k==="len"?(imp?LEN:1):k==="force"?(imp?FRC:1):1;
@@ -250,7 +251,7 @@ function multiRow(t,i,val){const m=FORMS[t].multi;const u=m.unit||U[m.kind];
  return `<div class="mrow"><div><label data-k="${m.kind}" data-lab="${m.label}${i+1}" data-fixed="${m.unit||""}">${m.label}${i+1} (${u})</label><input type="text" inputmode="decimal" data-t="${t}" data-id="${m.id}" data-k="${m.kind}" value="${val}"></div>${i>0?`<button class="btn" data-del="${t}" data-i="${i}">刪除</button>`:""}</div>`}
 function build(t){
  const F=FORMS[t],p=$("#p"+t);
- const core=F.fields.map(x=>fieldHTML(t,x)).join("");
+ const core=F.fields.map(x=>fieldHTML(t,x)+(t===2&&x[0]==="fm"?`<div class="full sw"><button class="btn" id="fiauto" data-fiauto="1">自動</button><span class="small" id="fistat"></span></div>`:"")).join("");
  const ex=F.extra.map(x=>fieldHTML(t,x)).join("");
  p.innerHTML=`<div class="layout"><aside class="diag"><details class="card" open><summary>參數位置圖</summary>${diagram(t)}${LEG[t].map(x=>`<div class="small">${x}</div>`).join("")}</details></aside><div class="col">
  <div class="card"><div class="grid">
@@ -285,7 +286,17 @@ function vals(t){
 }
 const need=(g,ids)=>ids.every(i=>typeof g[i]==="number"&&!isNaN(g[i]));
 function render(t){
- const g=vals(t),o=$("#r"+t),m=MATS[+g.mat||0],peen=!!g.peen;let h="";
+ let g=vals(t);
+ if(t===2){ // 初張力：自動計算（可手動修改，按「自動」恢復）
+  const fe=$('input[data-t="2"][data-id="fi"]'),st=$("#fistat"),ab=$("#fiauto");
+  if(typeof g.d==="number"&&typeof g.od==="number"&&g.d>0&&g.od>g.d){
+   const a=initialTension(g.d,g.od-g.d);
+   if(FIAUTO){fe.value=clean(fromSi(a.fi,"force"));g.fi=a.fi}
+   st.textContent=`初張力：${FIAUTO?"自動計算":"手動輸入"}｜建議範圍 ${f(oF(a.lo),2)}～${f(oF(a.hi),2)} ${U.force}`;
+  }else st.textContent="初張力：請先輸入線徑與外徑";
+  ab.disabled=FIAUTO;
+ }
+ const o=$("#r"+t),m=MATS[+g.mat||0],peen=!!g.peen;let h="";
  try{
  if(t===0){
   if(!need(g,["d","od","na","l0"])||g.od<=g.d){o.innerHTML="";return}
@@ -335,7 +346,7 @@ function render(t){
 }
 /* ---- 事件 ---- */
 [0,1,2].forEach(build);
-document.addEventListener("input",e=>{const t=e.target.dataset?.t;if(t!==undefined&&e.target.dataset.id!=="peen")render(+t)});
+document.addEventListener("input",e=>{if(e.target.dataset?.t==="2"&&e.target.dataset.id==="fi")FIAUTO=false;const t=e.target.dataset?.t;if(t!==undefined&&e.target.dataset.id!=="peen")render(+t)});
 document.addEventListener("change",e=>{const el=e.target,t=el.dataset?.t;if(t===undefined)return;
  if(el.dataset.id==="peen"&&el.checked&&!confirm("確定要啟用「珠擊處理 (Shot peened)」嗎？\n\n此選項會提高疲勞壽命的估算值，僅限零件確實經過珠擊處理的特殊用途才選用。"))el.checked=false;
  render(+t)});
@@ -345,6 +356,7 @@ document.addEventListener("click",e=>{
  else if(b.dataset.del!==undefined){const t=+b.dataset.del,c=$("#m"+t);c.children[+b.dataset.i].remove();
   [...c.children].forEach((row,i)=>{const l=row.querySelector("label"),m=FORMS[t].multi;l.dataset.lab=m.label+(i+1);const u=l.dataset.fixed||(m.kind==="none"?"":U[m.kind]);l.textContent=l.dataset.lab+" ("+(m.unit||U[m.kind])+")";
    const d=row.querySelector("button");if(d){d.dataset.i=i}});render(t)}
+ else if(b.dataset.fiauto){FIAUTO=true;render(2)}
  else if(b.dataset.u){document.querySelectorAll("#useg button").forEach(x=>x.classList.toggle("on",x===b));setUnits(b.dataset.u==="i")}
  else if(b.dataset.t!==undefined&&b.parentElement.id==="nav")go(+b.dataset.t);
 });

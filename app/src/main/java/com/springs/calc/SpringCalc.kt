@@ -187,6 +187,21 @@ object SpringCalc {
         return ExtFatigue(body, hb, ht, g.second.cycles, g.second.belowThousand, g.first, w)
     }
 
+    // ---------- 拉伸彈簧初張力（自動值）----------
+    data class InitTension(val fi: Double, val fiLo: Double, val fiHi: Double, val tau: Double, val tauLo: Double, val tauHi: Double)
+
+    /**
+     * Shigley 建議的初應力範圍：τi = 33.5 ksi / exp(0.105C) ± 1 ksi·(4 − (C−3)/6.5)，C = D/d；
+     * 初張力 Fi = π·d³·τi / (8·D)（初應力不含 Wahl 修正）。fi 取範圍中值。
+     */
+    fun initialTension(d: Double, dm: Double): InitTension {
+        val c = dm / d
+        val tau = 33.5 * 6.894757 / Math.exp(0.105 * c)
+        val tol = 6.894757 * (4 - (c - 3) / 6.5)
+        fun f(t: Double) = (PI * d.pow(3) * t / (8 * dm)).coerceAtLeast(0.0)
+        return InitTension(f(tau), f(tau - tol), f(tau + tol), tau, tau - tol, tau + tol)
+    }
+
     // ---------- 拉伸 ----------
     data class Extension(
         val dm: Double, val c: Double, val k: Double, val bodyLength: Double,

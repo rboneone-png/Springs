@@ -60,4 +60,9 @@ class SpringCalcTest {
         assertEquals(3.49e4, r.cycles, 3.49e4 * 0.03)
         assertEquals(4.45e5, r.body.cycles, 4.45e5 * 0.03)
     }
+
+    @Test fun autoInitialTension() {
+        val r = SpringCalc.initialTension(2.0, 14.0)
+        assertEquals(24.85, r.fi, 0.05); assertEquals(19.62, r.fiLo, 0.05); assertEquals(30.09, r.fiHi, 0.05)
+    }
 }

@@ -180,7 +180,8 @@ fun ExtensionScreen(u: Units) {
     val d = remember { mutableStateOf(u.def("2", Kind.LEN)) }; val od = remember { mutableStateOf(u.def("16", Kind.LEN)) }
     val na = remember { mutableStateOf("8") }; val l0 = remember { mutableStateOf(u.def("60", Kind.LEN)) }
     val lws = remember { mutableStateListOf(mutableStateOf(u.def("80", Kind.LEN))) }
-    val fi = remember { mutableStateOf(u.def("10", Kind.FORCE)) }
+    val fi = remember { mutableStateOf("") }
+    var fiAuto by remember { mutableStateOf(true) }
     val fm = remember { mutableStateOf(u.def("200", Kind.FORCE)) }
     val r1 = remember { mutableStateOf(u.def("7", Kind.LEN)) }; val r2 = remember { mutableStateOf(u.def("4", Kind.LEN)) }
     val lminS = remember { mutableStateOf("") }
@@ -188,12 +189,28 @@ fun ExtensionScreen(u: Units) {
     var mat by remember { mutableStateOf(Material.all[0]) }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lminS to Kind.LEN,
         fi to Kind.FORCE, fm to Kind.FORCE, r1 to Kind.LEN, r2 to Kind.LEN) + lws.map { it to Kind.LEN })
+    // 初張力：預設依線徑與外徑自動計算；使用者可手動修改，按「自動」隨時恢復
+    val dSi = d.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) }
+    val odSi = od.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) }
+    val autoFi = if (dSi != null && odSi != null && dSi > 0 && odSi > dSi) SpringCalc.initialTension(dSi, odSi - dSi) else null
+    LaunchedEffect(fiAuto, autoFi, u) {
+        if (fiAuto && autoFi != null)
+            fi.value = "%.3f".format(u.fromSi(autoFi.fi, Kind.FORCE)).trimEnd('0').trimEnd('.')
+    }
     Hint()
     ExtensionDiagram()
     MaterialPicker(u, mat) { mat = it }
     Row2({ NumField("線徑 d", u.len, d) }, { NumField("外徑 OD", u.len, od) })
     Row2({ NumField("有效圈數 Na", "圈", na) }, { NumField("自由長(鉤內) L0", u.len, l0) })
-    Row2({ NumField("初張力 Fi", u.force, fi) }, { NumField("最大負荷", u.force, fm) })
+    Row2({ NumField("初張力 Fi", u.force, fi) { fiAuto = false } }, { NumField("最大負荷", u.force, fm) })
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { fiAuto = true }, enabled = !fiAuto) { Text("自動") }
+        Text(
+            if (autoFi == null) "初張力：請先輸入線徑與外徑"
+            else "初張力：${if (fiAuto) "自動計算" else "手動輸入"}｜建議範圍 ${f(u.forceOut(autoFi.fiLo), 2)}～${f(u.forceOut(autoFi.fiHi), 2)} ${u.force}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
     Row2({ NumField("鉤環中心半徑 r1", u.len, r1) }, { NumField("鉤側彎半徑 r2", u.len, r2) })
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
     NumField("壽命測試按壓回覆位置（空白＝自由長，此時負荷＝初張力）", u.len, lminS)

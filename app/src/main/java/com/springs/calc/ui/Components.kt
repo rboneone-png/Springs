@@ -11,9 +11,9 @@ import com.springs.calc.Material as Mat
 
 /** 數字輸入欄；回傳目前 Double?（空白或非法為 null） */
 @Composable
-fun NumField(label: String, unit: String, state: MutableState<String>) {
+fun NumField(label: String, unit: String, state: MutableState<String>, onEdit: (() -> Unit)? = null) {
     OutlinedTextField(
-        value = state.value, onValueChange = { state.value = it },
+        value = state.value, onValueChange = { state.value = it; onEdit?.invoke() },
         label = { Text("$label ($unit)") }, singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         isError = state.value.isNotBlank() && state.value.toDoubleOrNull() == null,
