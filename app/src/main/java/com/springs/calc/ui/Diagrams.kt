@@ -33,7 +33,7 @@ private class Pal(val line: Color, val dim: Color, val text: Color)
 
 @Composable
 private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, draw: DrawScope.(TextMeasurer, Pal) -> Unit) {
-    var open by rememberSaveable { mutableStateOf(true) }
+    var open by rememberSaveable { mutableStateOf(false) }
     val tm = rememberTextMeasurer()
     val pal = Pal(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onSurface)
     Card(Modifier.fillMaxWidth()) {
@@ -93,27 +93,29 @@ fun CompressionDiagram() = DiagramCard(
         "Na 有效圈數（不含兩端閉合圈）",
     ), 290,
 ) { tm, p ->
-    val w = size.width; val h = size.height; val wire = 5.dp.toPx(); val ext = 10.dp.toPx()
+    val w = size.width; val h = size.height; val wire = 5.dp.toPx()
     val cx = w * 0.40f; val half = w * 0.17f; val top = h * 0.28f; val bot = h * 0.78f
-    drawLine(p.line, Offset(cx - half - ext, top), Offset(cx + half + ext, top), wire)
-    drawLine(p.line, Offset(cx - half - ext, bot), Offset(cx + half + ext, bot), wire)
+    val outer = half + wire / 2   // 線材外緣 = OD/2
+    // 端圈（閉合磨平）：寬度與外徑一致
+    drawLine(p.line, Offset(cx - outer, top), Offset(cx + outer, top), wire, StrokeCap.Butt)
+    drawLine(p.line, Offset(cx - outer, bot), Offset(cx + outer, bot), wire, StrokeCap.Butt)
     val n = 7; val path = Path()
     for (i in 0..n) {
         val y = top + (bot - top) * i / n
-        val x = if (i == 0 || i == n) cx else if (i % 2 == 1) cx + half else cx - half
+        val x = if (i % 2 == 0) cx - half else cx + half
         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
     }
     drawPath(path, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
     val xL0 = w * 0.82f; val xL = w * 0.68f; val lBot = bot - (bot - top) * 0.30f
-    guide(Offset(cx + half + ext, top), Offset(xL0 + 6.dp.toPx(), top), p.dim)
-    guide(Offset(cx + half + ext, bot), Offset(xL0 + 6.dp.toPx(), bot), p.dim)
+    guide(Offset(cx + outer, top), Offset(xL0 + 6.dp.toPx(), top), p.dim)
+    guide(Offset(cx + outer, bot), Offset(xL0 + 6.dp.toPx(), bot), p.dim)
     guide(Offset(cx + half, lBot), Offset(xL + 6.dp.toPx(), lBot), p.dim)
     dim(Offset(xL0, top), Offset(xL0, bot), p.dim); txt(tm, "L0", Offset(xL0 + 16.dp.toPx(), (top + bot) / 2), p.dim)
     dim(Offset(xL, top), Offset(xL, lBot), p.dim); txt(tm, "L", Offset(xL + 14.dp.toPx(), (top + lBot) / 2), p.dim)
     val yOD = h * 0.10f
-    guide(Offset(cx - half - wire / 2, yOD), Offset(cx - half - wire / 2, top), p.dim)
-    guide(Offset(cx + half + wire / 2, yOD), Offset(cx + half + wire / 2, top), p.dim)
-    dim(Offset(cx - half - wire / 2, yOD), Offset(cx + half + wire / 2, yOD), p.dim)
+    guide(Offset(cx - outer, yOD), Offset(cx - outer, top), p.dim)
+    guide(Offset(cx + outer, yOD), Offset(cx + outer, top), p.dim)
+    dim(Offset(cx - outer, yOD), Offset(cx + outer, yOD), p.dim)
     txt(tm, "OD", Offset(cx, yOD + 14.dp.toPx()), p.dim)
     val yD = h * 0.90f
     guide(Offset(cx - half, bot), Offset(cx - half, yD), p.dim); guide(Offset(cx + half, bot), Offset(cx + half, yD), p.dim)
