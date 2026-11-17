@@ -20,7 +20,9 @@ fun CompressionScreen(u: Units) {
     val lws = remember { mutableStateListOf(mutableStateOf(u.def("40", Kind.LEN))) }
     var mat by remember { mutableStateOf(Material.all[0]) }
     var end by remember { mutableStateOf(EndType.CLOSED_GROUND) }
-    UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN) + lws.map { it to Kind.LEN })
+    val lmaxS = remember { mutableStateOf("") }
+    var peened by remember { mutableStateOf(false) }
+    UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lmaxS to Kind.LEN) + lws.map { it to Kind.LEN })
     Hint()
     MaterialPicker(u, mat) { mat = it }
     Dropdown("端部型式", EndType.entries, end, { it.label }) { end = it }
@@ -33,6 +35,10 @@ fun CompressionScreen(u: Units) {
                 Icon(Icons.Default.Delete, contentDescription = "刪除")
             }
         }
+    }
+    NumField("按壓回彈長度（循環最大長度，空白＝自由長）", u.len, lmaxS)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Switch(checked = peened, onCheckedChange = { peened = it }); Spacer(Modifier.width(8.dp)); Text("珠擊處理 (Shot peened)")
     }
     OutlinedButton(onClick = { lws.add(mutableStateOf("")) }) {
         Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("新增工作長度")
@@ -53,11 +59,26 @@ fun CompressionScreen(u: Units) {
             val lw = st.value.toDoubleOrNull() ?: return@forEachIndexed
             val r = SpringCalc.compression(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(na)!!,
                 l0.si(u, Kind.LEN), u.toSi(lw, Kind.LEN), mat, end)
+            val lMaxSi = lmaxS.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) } ?: l0.si(u, Kind.LEN)
+            val tauMin = if (lMaxSi < l0.si(u, Kind.LEN))
+                SpringCalc.shear(r.k * (l0.si(u, Kind.LEN) - lMaxSi), r.dm, d.si(u, Kind.LEN)) else 0.0
+            val fat = SpringCalc.fatigue(r.stress, tauMin, d.si(u, Kind.LEN), mat, peened)
+            val lifeText = when {
+                fat.cycles.isInfinite() -> "無限壽命 (>10⁷ 次)"
+                fat.belowThousand -> "< 10³ 次"
+                else -> "約 ${fmtCycles(fat.cycles)} 次"
+            }
+            val extraW = fat.warnings + if (u.toSi(lw, Kind.LEN) > lMaxSi) listOf("工作長度大於回彈長度，循環定義不合理") else emptyList()
             ResultCard(listOf(
                 "壓縮量 (L0−L)" to "${f(u.lenOut(l0.si(u, Kind.LEN) - u.toSi(lw, Kind.LEN)), 3)} ${u.len}",
                 "工作負荷 F" to "${f(u.forceOut(r.load))} ${u.force}",
-                "工作剪應力 τ" to "${f(u.stressOut(r.stress), 1)} ${u.stress}",
-            ), r.warnings.filter { it.startsWith("工作長度") }, title = "L${i + 1} = ${f(lw, 2)} ${u.len}")
+                "工作剪應力 τmax" to "${f(u.stressOut(r.stress), 1)} ${u.stress}",
+                "回彈剪應力 τmin" to "${f(u.stressOut(tauMin), 1)} ${u.stress}",
+                "抗拉強度 Sut" to "${f(u.stressOut(fat.sut), 0)} ${u.stress}",
+                "靜態安全係數" to (if (fat.staticSf.isInfinite()) "∞" else f(fat.staticSf, 2)),
+                "疲勞安全係數 (10⁷)" to (if (fat.fatigueSf.isInfinite()) "∞" else f(fat.fatigueSf, 2)),
+                "預估壽命" to lifeText,
+            ), r.warnings.filter { it.startsWith("工作長度") } + extraW, title = "L${i + 1} = ${f(lw, 2)} ${u.len}")
         }
     }
 }
@@ -122,4 +143,12 @@ fun ExtensionScreen(u: Units) {
         "鉤環彎曲應力 (最大)" to "${f(u.stressOut(r.hookBendingMax), 1)} ${u.stress}",
         "鉤側彎扭轉應力 (最大)" to "${f(u.stressOut(r.hookTorsionMax), 1)} ${u.stress}",
     ), r.warnings)
+}
+
+/** 兩位有效數字的循環次數，如 5.3×10⁵ */
+private fun fmtCycles(n: Double): String {
+    val e = Math.floor(Math.log10(n)).toInt()
+    val m = n / Math.pow(10.0, e.toDouble())
+    val sup = e.toString().map { "⁰¹²³⁴⁵⁶⁷⁸⁹"[it - '0'] }.joinToString("")
+    return "%.1f×10%s".format(m, sup)
 }

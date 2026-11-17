@@ -4,14 +4,17 @@ import kotlin.math.PI
 import kotlin.math.pow
 
 /** 單位：長度 mm、力 N、應力/模數 MPa、扭矩 N·mm */
-data class Material(val name: String, val g: Double, val e: Double) {
+/** a, m：抗拉強度 Sut = a / d^m (MPa, d 以 mm)；steel：疲勞係數是否適用 */
+data class Material(val name: String, val g: Double, val e: Double, val a: Double, val m: Double, val steel: Boolean = true) {
+    fun sut(d: Double) = a / Math.pow(d, m)
+
     companion object {
         val all = listOf(
-            Material("琴鋼線 (Music wire)", 79300.0, 206000.0),
-            Material("油回火鋼線", 77200.0, 203400.0),
-            Material("不鏽鋼 302/304", 69000.0, 193000.0),
-            Material("磷青銅", 41400.0, 103400.0),
-            Material("鉻矽鋼線", 77200.0, 203400.0),
+            Material("琴鋼線 (Music wire)", 79300.0, 206000.0, 2211.0, 0.145),
+            Material("油回火鋼線", 77200.0, 203400.0, 1855.0, 0.187),
+            Material("不鏽鋼 302/304", 69000.0, 193000.0, 1867.0, 0.146),
+            Material("磷青銅", 41400.0, 103400.0, 932.0, 0.064, steel = false),
+            Material("鉻矽鋼線", 77200.0, 203400.0, 1974.0, 0.108),
         )
     }
 }
@@ -72,6 +75,48 @@ object SpringCalc {
             if (lw > l0) add("工作長度大於自由長度")
         }
         return Compression(dm, c, k, end.totalCoils(na), ls, f, shear(f, dm, d), fs, shear(fs, dm, d), l0 / dm, w)
+    }
+
+
+    // ---------- 疲勞壽命（壓縮彈簧）----------
+    data class Fatigue(
+        val sut: Double, val ssu: Double, val sse: Double, val tauMax: Double, val tauMin: Double,
+        val staticSf: Double, val fatigueSf: Double,
+        /** 預估循環次數；Infinity = 無限壽命(>1e7)；1e3 以下以 1e3 表示下限 */
+        val cycles: Double, val belowThousand: Boolean, val warnings: List<String>,
+    )
+
+    /**
+     * 依 Shigley/Zimmerli 法：Ssu=0.67Sut；Ssa/Ssm = 241/379 MPa（珠擊 398/534）；
+     * Gerber 平均應力修正，S-N 以 10³(0.9Ssu) 與 10⁷(Sse) 兩點在對數座標內插。
+     */
+    fun fatigue(tauMax: Double, tauMin: Double, d: Double, m: Material, peened: Boolean): Fatigue {
+        val sut = m.sut(d); val ssu = 0.67 * sut
+        val ssa = if (peened) 398.0 else 241.0; val ssm = if (peened) 534.0 else 379.0
+        val sse = minOf(ssa / (1 - (ssm / ssu).pow(2)).coerceAtLeast(0.05), 0.5 * ssu)
+        val tm = (tauMax + tauMin) / 2; val ta = (tauMax - tauMin) / 2
+        val w = buildList {
+            if (!m.steel) add("疲勞係數以鋼線試驗為基礎，此材質結果僅供參考")
+            if (tauMax > 0.45 * sut) add("最大應力超過靜態降伏約 0.45Sut，可能永久變形")
+            if (ta <= 0) add("循環應力幅為 0，無疲勞")
+        }
+        val staticSf = if (tauMax > 0) 0.45 * sut / tauMax else Double.POSITIVE_INFINITY
+        if (ta <= 0 || tm >= ssu) {
+            return Fatigue(sut, ssu, sse, tauMax, tauMin, staticSf, Double.POSITIVE_INFINITY,
+                if (ta <= 0) Double.POSITIVE_INFINITY else 1.0, ta > 0, w)
+        }
+        val nf = 0.5 * (ssu / tm).pow(2) * (ta / sse) *
+            (-1 + kotlin.math.sqrt(1 + (2 * tm * sse / (ssu * ta)).pow(2)))
+        val eq = ta / (1 - (tm / ssu).pow(2))
+        val s1 = 0.9 * ssu
+        return when {
+            eq >= s1 -> Fatigue(sut, ssu, sse, tauMax, tauMin, staticSf, nf, 1e3, true, w)
+            eq <= sse -> Fatigue(sut, ssu, sse, tauMax, tauMin, staticSf, nf, Double.POSITIVE_INFINITY, false, w)
+            else -> {
+                val logN = 3 + 4 * kotlin.math.ln(s1 / eq) / kotlin.math.ln(s1 / sse)
+                Fatigue(sut, ssu, sse, tauMax, tauMin, staticSf, nf, 10.0.pow(logN), false, w)
+            }
+        }
     }
 
     // ---------- 拉伸 ----------
