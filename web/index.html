@@ -335,8 +335,10 @@ function render(t){
 }
 /* ---- 事件 ---- */
 [0,1,2].forEach(build);
-document.addEventListener("input",e=>{const t=e.target.dataset?.t;if(t!==undefined)render(+t)});
-document.addEventListener("change",e=>{const t=e.target.dataset?.t;if(t!==undefined)render(+t)});
+document.addEventListener("input",e=>{const t=e.target.dataset?.t;if(t!==undefined&&e.target.dataset.id!=="peen")render(+t)});
+document.addEventListener("change",e=>{const el=e.target,t=el.dataset?.t;if(t===undefined)return;
+ if(el.dataset.id==="peen"&&el.checked&&!confirm("確定要啟用「珠擊處理 (Shot peened)」嗎？\n\n此選項會提高疲勞壽命的估算值，僅限零件確實經過珠擊處理的特殊用途才選用。"))el.checked=false;
+ render(+t)});
 document.addEventListener("click",e=>{
  const b=e.target.closest("button");if(!b)return;
  if(b.dataset.add!==undefined){const t=+b.dataset.add,c=$("#m"+t),n=c.children.length;c.insertAdjacentHTML("beforeend",multiRow(t,n,""));render(t)}

@@ -27,10 +27,20 @@ private fun lifeText(c: Double, below: Boolean, inf: String) = when {
 }
 
 @Composable
-private fun PeenedSwitch(v: Boolean, on: (Boolean) -> Unit) =
+private fun PeenedSwitch(v: Boolean, on: (Boolean) -> Unit) {
+    var ask by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Switch(checked = v, onCheckedChange = on); Spacer(Modifier.width(8.dp)); Text("珠擊處理 (Shot peened)：提升零件的抗疲勞壽命與耐用度(特殊用途選用)")
+        Switch(checked = v, onCheckedChange = { if (it) ask = true else on(false) })
+        Spacer(Modifier.width(8.dp)); Text("珠擊處理 (Shot peened)：提升零件的抗疲勞壽命與耐用度(特殊用途選用)")
     }
+    if (ask) AlertDialog(
+        onDismissRequest = { ask = false },
+        title = { Text("確定啟用珠擊處理？") },
+        text = { Text("此選項會提高疲勞壽命的估算值，僅限零件確實經過珠擊處理 (Shot peened) 的特殊用途才選用。") },
+        confirmButton = { TextButton(onClick = { ask = false; on(true) }) { Text("確定啟用") } },
+        dismissButton = { TextButton(onClick = { ask = false }) { Text("取消") } },
+    )
+}
 
 /** 可新增/刪除的多筆輸入（工作長度、扭轉角） */
 @Composable
