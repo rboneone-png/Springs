@@ -198,11 +198,6 @@ fun ExtensionDiagram() = DiagramCard(
     txt(tm, "圓環鉤", o(c1, 12f), p.dim); txt(tm, "長開口鉤", o(270f, 12f), p.dim)
     coils(x1l, x1r, y1, y2, n)
     drawCircle(p.line, r * k, o(c1, y1 - r), style = Stroke(wire)); drawCircle(p.line, r * k, o(c1, y2 + r), style = Stroke(wire))
-    val b1 = Path().apply {
-        mv(x1l, y1 + 4); arc(x1l + rr, y1 + 4, rr, 180f, 90f); ln(c1 - r, y1 - r)
-        mv(x1l, y2 - 4); arc(x1l + rr, y2 - 4, rr, 180f, -90f); ln(c1 - r, y2 + r)
-    }
-    drawPath(b1, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
     guide(o(c1 - r, topIn), o(18f, topIn), p.dim); guide(o(c1 - r, botIn), o(18f, botIn), p.dim)
     dim(o(26f, topIn), o(26f, botIn), p.dim)
     rotate(-90f, pivot = o(14f, (topIn + botIn) / 2)) { txt(tm, "自由長度 L0", o(14f, (topIn + botIn) / 2), p.dim) }
@@ -217,17 +212,20 @@ fun ExtensionDiagram() = DiagramCard(
     val c2 = 270f; val rr2 = 10f; val rad = 18f; val lx = c2 - h + rr2
     val yt = y1 - rr2 - 30f; val yb = y2 + rr2 + 30f; val x2l = c2 - h; val x2r = c2 + h
     val top2 = yt - rad + 2.2f; val bot2 = yb + rad - 2.2f; val hx = lx + rad
-    val q = rad * 0.7071f
+    val kk = rr2 * 0.7071f; val q = rad * 0.7071f
     coils(x2l, x2r, y1, y2, n)
     val b2 = Path().apply {
-        mv(x2l, y1 + 4); arc(lx, y1 + 4, rr2, 180f, 90f); ln(lx, yt); arc(lx + rad, yt, rad, 180f, 180f); ln(lx + 2 * rad, yt + 20)
-        mv(x2l, y2 - 4); arc(lx, y2 - 4, rr2, 180f, -90f); ln(lx, yb); arc(lx + rad, yb, rad, 180f, -180f); ln(lx + 2 * rad, yb - 20)
+        mv(lx, y1 + 4); ln(lx, yt); arc(lx + rad, yt, rad, 180f, 180f); ln(lx + 2 * rad, yt + 20)
+        mv(lx, y2 - 4); ln(lx, yb); arc(lx + rad, yb, rad, 180f, -180f); ln(lx + 2 * rad, yb - 20)
     }
     drawPath(b2, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
     guide(o(lx + 2 * rad, top2), o(340f, top2), p.dim); guide(o(lx + 2 * rad, bot2), o(340f, bot2), p.dim)
     dim(o(334f, top2), o(334f, bot2), p.dim)
     rotate(-90f, pivot = o(350f, (top2 + bot2) / 2)) { txt(tm, "自由長度 L0", o(350f, (top2 + bot2) / 2), p.dim) }
     drawCircle(p.dim, 3f * k, o(hx, yt)); drawLine(p.dim, o(hx, yt), o(hx - q, yt - q), 1.5.dp.toPx()); txt(tm, "r1", o(hx - q - 14, yt - q - 8), p.dim)
+    drawCircle(p.dim, rr2 * k, o(lx, y1 + 4), style = Stroke(1.dp.toPx(), pathEffect = dash)); drawCircle(p.dim, 3f * k, o(lx, y1 + 4))
+    drawLine(p.dim, o(lx, y1 + 4), o(lx - kk, y1 + 4 - kk), 2.dp.toPx())
+    guide(o(lx - kk, y1 + 4 - kk), o(lx - 30, y1 - 34), p.dim); txt(tm, "r2", o(lx - 42, y1 - 40), p.dim)
     arrow(o(hx, top2 - 6), o(hx, top2 - 28), p.dim); txt(tm, "F", o(hx + 14, top2 - 18), p.dim)
     arrow(o(hx, bot2 + 6), o(hx, bot2 + 28), p.dim); txt(tm, "F", o(hx + 14, bot2 + 18), p.dim)
 }

@@ -212,13 +212,11 @@ function extFig(){
  // 左：圓環鉤
  const c1=90,r=20,rr=h-r,x1l=c1-h,x1r=c1+h,topIn=y1-2*r+2.2,botIn=y2+2*r-2.2;
  // 右：長開口鉤
- const c2=270,rr2=10,R=18,lx=c2-h+rr2,yt=y1-rr2-30,yb=y2+rr2+30,x2l=c2-h,x2r=c2+h,top2=yt-R+2.2,bot2=yb+R-2.2,hx=lx+R,q=R*.7071;
+ const c2=270,rr2=10,R=18,lx=c2-h+rr2,yt=y1-rr2-30,yb=y2+rr2+30,x2l=c2-h,x2r=c2+h,top2=yt-R+2.2,bot2=yb+R-2.2,hx=lx+R,k=rr2*.7071,q=R*.7071;
  return `<svg viewBox="0 0 360 372" color="currentColor">${ar("a2")}
   ${tx("圓環鉤",c1,12)}${tx("長開口鉤",c2,12)}
   ${coils(x1l,x1r,y1,y2,n)}
   <circle class="l" stroke-width="4.6" cx="${c1}" cy="${y1-r}" r="${r}"/><circle class="l" stroke-width="4.6" cx="${c1}" cy="${y2+r}" r="${r}"/>
-  <path class="l" stroke-width="4.6" d="M${x1l},${y1+4} A${rr},${rr} 0 0 1 ${x1l+rr},${y1+4-rr} L${c1-r},${y1-r}"/>
-  <path class="l" stroke-width="4.6" d="M${x1l},${y2-4} A${rr},${rr} 0 0 0 ${x1l+rr},${y2-4+rr} L${c1-r},${y2+r}"/>
   ${gd(c1-r,topIn,18,topIn)}${gd(c1-r,botIn,18,botIn)}${dm("a2",26,topIn,26,botIn)}
   <text transform="translate(14,${(topIn+botIn)/2}) rotate(-90)">自由長度 L0</text>
   ${gd(x1r,y1,146,y1)}${gd(x1r,y2,146,y2)}${dm("a2",140,y1,140,y2)}${tx("Lb",156,(y1+y2)/2)}
@@ -227,10 +225,12 @@ function extFig(){
   <line class="d" x1="${c1}" y1="${y2+2*r+6}" x2="${c1}" y2="${y2+2*r+34}" marker-end="url(#a2)"/>${tx("F",c1+14,y2+2*r+24)}
   ${gd(x1l,y2,x1l,358)}${gd(x1r,y2,x1r,358)}${dm("a2",x1l,354,x1r,354)}${tx("OD",x1r+20,354)}
   ${coils(x2l,x2r,y1,y2,n)}
-  <path class="l" stroke-width="4.6" d="M${x2l},${y1+4} A${rr2},${rr2} 0 0 1 ${lx},${y1+4-rr2} L${lx},${yt} A${R},${R} 0 0 1 ${lx+2*R},${yt} L${lx+2*R},${yt+20}"/>
-  <path class="l" stroke-width="4.6" d="M${x2l},${y2-4} A${rr2},${rr2} 0 0 0 ${lx},${y2-4+rr2} L${lx},${yb} A${R},${R} 0 0 0 ${lx+2*R},${yb} L${lx+2*R},${yb-20}"/>
+  <path class="l" stroke-width="4.6" d="M${lx},${y1+4} L${lx},${yt} A${R},${R} 0 0 1 ${lx+2*R},${yt} L${lx+2*R},${yt+20}"/>
+  <path class="l" stroke-width="4.6" d="M${lx},${y2-4} L${lx},${yb} A${R},${R} 0 0 0 ${lx+2*R},${yb} L${lx+2*R},${yb-20}"/>
   ${gd(lx+2*R,top2,340,top2)}${gd(lx+2*R,bot2,340,bot2)}${dm("a2",334,top2,334,bot2)}<text transform="translate(350,${(top2+bot2)/2}) rotate(-90)">自由長度 L0</text>
   <circle cx="${hx}" cy="${yt}" r="3" fill="var(--pri)"/><line class="d" x1="${hx}" y1="${yt}" x2="${hx-q}" y2="${yt-q}"/>${tx("r1",hx-q-14,yt-q-8)}
+  <circle class="g" cx="${lx}" cy="${y1+4}" r="${rr2}"/><circle cx="${lx}" cy="${y1+4}" r="3" fill="var(--pri)"/>
+  <line class="d" stroke-width="2" x1="${lx}" y1="${y1+4}" x2="${lx-k}" y2="${y1+4-k}"/><line class="g" x1="${lx-k}" y1="${y1+4-k}" x2="${lx-30}" y2="${y1-34}"/>${tx("r2",lx-42,y1-40)}
   <line class="d" x1="${hx}" y1="${top2-6}" x2="${hx}" y2="${top2-28}" marker-end="url(#a2)"/>${tx("F",hx+14,top2-18)}
   <line class="d" x1="${hx}" y1="${bot2+6}" x2="${hx}" y2="${bot2+28}" marker-end="url(#a2)"/>${tx("F",hx+14,bot2+18)}
 </svg>`;
