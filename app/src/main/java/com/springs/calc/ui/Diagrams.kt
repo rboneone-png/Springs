@@ -34,7 +34,7 @@ import kotlin.math.sin
 private class Pal(val line: Color, val dim: Color, val text: Color)
 
 @Composable
-private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, aspect: Float? = null, draw: DrawScope.(TextMeasurer, Pal) -> Unit) {
+private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, aspect: Float? = null, controls: @Composable () -> Unit = {}, draw: DrawScope.(TextMeasurer, Pal) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     val tm = rememberTextMeasurer()
     val pal = Pal(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onSurface)
@@ -45,6 +45,7 @@ private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, aspe
                 Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null)
             }
             if (open) {
+                controls()
                 Canvas(Modifier.fillMaxWidth().then(if (aspect != null) Modifier.aspectRatio(aspect) else Modifier.height(heightDp.dp))) { draw(tm, pal) }
                 legend.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
@@ -170,13 +171,25 @@ fun TorsionDiagram() = DiagramCard(
 
 // ---------- 拉伸彈簧 ----------
 @Composable
-fun ExtensionDiagram() = DiagramCard(
-    "參數位置圖", listOf(
-        "d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數",
-        "L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d",
-        "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",
-    ), 0, aspect = 360f / 590f,
-) { tm, p ->
+fun ExtensionDiagram() {
+    var hook by rememberSaveable { mutableStateOf(0) }
+    DiagramCard(
+        "參數位置圖", listOf(
+            "d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數",
+            "L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d",
+            "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",
+            "圖示以圓環鉤、長開口鉤為例；其他鉤型的 r2 同樣是鉤與本體交接的彎折半徑，r1 為鉤的中心半徑",
+        ), 0, aspect = if (hook == 0) 360f / 590f else 360f / 372f,
+        controls = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp)) {
+                FilterChip(selected = hook == 0, onClick = { hook = 0 }, label = { Text("圓環鉤") })
+                FilterChip(selected = hook == 1, onClick = { hook = 1 }, label = { Text("長開口鉤") })
+            }
+        },
+    ) { tm, p -> if (hook == 0) extLoop(tm, p) else extOpen(tm, p) }
+}
+
+private fun DrawScope.extLoop(tm: TextMeasurer, p: Pal) {
     // 以 360×590 的設計座標繪製，再依寬度等比縮放（與網頁版 SVG 相同）
     val k = size.width / 360f
     fun o(x: Float, y: Float) = Offset(x * k, y * k)
@@ -237,4 +250,54 @@ fun ExtensionDiagram() = DiagramCard(
     drawLine(p.dim, o(100f, 505f), o(71.7f, 476.7f), 2.dp.toPx())
     guide(o(71.7f, 476.7f), o(46f, 452f), p.dim); txt(tm, "r2", o(32f, 446f), p.dim)
     txt(tm, "r1：鉤環中心半徑　r2：鉤側彎半徑", o(180f, 562f), p.dim)
+}
+
+private fun DrawScope.extOpen(tm: TextMeasurer, p: Pal) {
+    val k = size.width / 360f
+    fun o(x: Float, y: Float) = Offset(x * k, y * k)
+    val wire = 5f * k
+    val cx = 150f; val h = 40f; val rr = 14f; val rad = 20f; val y1 = 125f; val y2 = 225f; val n = 10
+    val lx = cx - h + rr; val yt = y1 - rr - 34f; val yb = y2 + rr + 34f
+    val step = (y2 - y1) / n
+    for (i in 0 until n) {
+        val y = y1 + step * i
+        drawLine(p.line, o(cx - h, y + 6), o(cx + h, y + 1 + step * 0.5f), wire * 0.8f, StrokeCap.Round)
+    }
+    val hookPath = Path().apply {
+        moveTo(o(cx - h, y1).x, o(cx - h, y1).y)
+        arcTo(Rect(o(lx, y1), rr * k), 180f, 90f, false)
+        lineTo(o(lx, yt).x, o(lx, yt).y)
+        arcTo(Rect(o(lx + rad, yt), rad * k), 180f, 180f, false)
+        lineTo(o(lx + 2 * rad, yt + 22f).x, o(lx + 2 * rad, yt + 22f).y)
+        moveTo(o(cx - h, y2).x, o(cx - h, y2).y)
+        arcTo(Rect(o(lx, y2), rr * k), 180f, -90f, false)
+        lineTo(o(lx, yb).x, o(lx, yb).y)
+        arcTo(Rect(o(lx + rad, yb), rad * k), 180f, -180f, false)
+        lineTo(o(lx + 2 * rad, yb - 22f).x, o(lx + 2 * rad, yb - 22f).y)
+    }
+    drawPath(hookPath, p.line, style = Stroke(wire, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    txt(tm, "長開口鉤（機械鉤）", o(250f, 22f), p.dim)
+    val hx = lx + rad; val top = yt - rad + 2.5f; val bot = yb + rad - 2.5f
+    // L0、Lb
+    guide(o(lx + 2 * rad, top), o(305f, top), p.dim); guide(o(lx + 2 * rad, bot), o(305f, bot), p.dim)
+    dim(o(295f, top), o(295f, bot), p.dim); txt(tm, "L0", o(322f, (top + bot) / 2), p.dim)
+    guide(o(cx + h, y1), o(255f, y1), p.dim); guide(o(cx + h, y2), o(255f, y2), p.dim)
+    dim(o(245f, y1), o(245f, y2), p.dim); txt(tm, "Lb", o(268f, (y1 + y2) / 2), p.dim)
+    // r1：鉤半圓的圓心與半徑線
+    val hc = rad * 0.7071f
+    drawCircle(p.dim, 3f * k, o(hx, yt))
+    drawLine(p.dim, o(hx, yt), o(hx + hc, yt - hc), 1.5.dp.toPx()); txt(tm, "r1", o(hx + hc + 16, yt - hc - 8), p.dim)
+    // r2：鉤側彎（圓心、半徑線、虛線引出）
+    val c45 = rr * 0.7071f
+    drawCircle(p.dim, rr * k, o(lx, y1), style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
+    drawCircle(p.dim, 3f * k, o(lx, y1))
+    drawLine(p.dim, o(lx, y1), o(lx - c45, y1 - c45), 2.dp.toPx())
+    guide(o(lx - c45, y1 - c45), o(lx - 40, y1 - 48), p.dim); txt(tm, "r2", o(lx - 52, y1 - 54), p.dim)
+    // 拉力 F
+    arrow(o(hx, top - 8), o(hx, top - 40), p.dim); txt(tm, "F", o(hx + 14, top - 30), p.dim)
+    arrow(o(hx, bot + 8), o(hx, bot + 40), p.dim); txt(tm, "F", o(hx + 14, bot + 30), p.dim)
+    // OD、d
+    guide(o(cx - h, y2), o(cx - h, 358f), p.dim); guide(o(cx + h, y2), o(cx + h, 358f), p.dim)
+    dim(o(cx - h, 354f), o(cx + h, 354f), p.dim); txt(tm, "OD", o(cx + h + 20, 354f), p.dim)
+    wireSection(tm, p, o(30f, 175f))
 }

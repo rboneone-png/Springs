@@ -17,6 +17,7 @@ header h1{font-size:17px;margin:0;flex:1}
 main{max-width:1120px;margin:0 auto;padding:12px 16px 90px;touch-action:pan-y}
 .layout{display:grid;gap:0 16px}.layout>.diag{order:-1}
 @media(min-width:900px){.layout{grid-template-columns:minmax(0,1fr) 400px;align-items:start}.layout>.diag{order:1;position:sticky;top:68px}}
+.hk[hidden]{display:none}.hkseg{margin:6px 0}
 .panel{display:none}.panel.on{display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
 .card h3{margin:0 0 8px;font-size:15px}
@@ -203,6 +204,9 @@ function diagram(t){
   ${gd(ax,fy,ax+34,fy)}${dm("a1",ax+28,cy,ax+28,fy)}${tx("R",ax+42,(cy+fy)/2+14)}
   <line class="d" x1="${ax-48}" y1="${fy}" x2="${ax-6}" y2="${fy}" marker-end="url(#a1)"/>${tx("F",ax-58,fy)}
   ${dm("a1",cx-r,cy+r+22,cx+r,cy+r+22)}${tx("OD",cx+r+20,cy+r+22)}${dm("a1",cx-rm,cy+r+44,cx+rm,cy+r+44)}${tx("D",cx+rm+16,cy+r+44)}${sec(28,cy)}</svg>`}
+ return `<div class="seg hkseg"><button data-hk="0" class="on">圓環鉤</button><button data-hk="1">長開口鉤</button></div><div class="hk" data-h="0">${extLoop()}</div><div class="hk" data-h="1" hidden>${extOpen()}</div>`;
+}
+function extLoop(){
  const cx=150,h=40,hr=24,rr=h-hr,y1=100,y2=210,n=10;let b="";for(let i=0;i<n;i++){const y=y1+(y2-y1)/n*i;b+=`<line class="l" stroke-width="4" x1="${cx-h}" y1="${y+6}" x2="${cx+h}" y2="${y+1+(y2-y1)/n*.5}"/>`}
  const topIn=y1-2*hr,botIn=y2+2*hr;
  return `<svg viewBox="0 0 360 590" color="currentColor">${ar("a2")}${b}
@@ -227,9 +231,27 @@ function diagram(t){
   ${tx("r1：鉤環中心半徑　r2：鉤側彎半徑",180,562)}
   ${gd(cx-h,y2,cx-h,320)}${gd(cx+h,y2,cx+h,320)}${dm("a2",cx-h,316,cx+h,316)}${tx("OD",cx+h+20,316)}${sec(30,165)}</svg>`;
 }
+function extOpen(){
+ const cx=150,h=40,rr=14,R=20,y1=125,y2=225,n=10,lx=cx-h+rr,yt=y1-rr-34,yb=y2+rr+34;let b="";
+ for(let i=0;i<n;i++){const y=y1+(y2-y1)/n*i;b+=`<line class="l" stroke-width="4" x1="${cx-h}" y1="${y+6}" x2="${cx+h}" y2="${y+1+(y2-y1)/n*.5}"/>`}
+ const hx=lx+R,top=yt-R+2.5,bot=yb+R-2.5,c45=rr*.7071,hc=R*.7071;
+ return `<svg viewBox="0 0 360 372" color="currentColor">${ar("a3")}${b}
+  <path class="l" stroke-width="5" d="M${cx-h},${y1} A${rr},${rr} 0 0 1 ${lx},${y1-rr} L${lx},${yt} A${R},${R} 0 0 1 ${lx+2*R},${yt} L${lx+2*R},${yt+22}"/>
+  <path class="l" stroke-width="5" d="M${cx-h},${y2} A${rr},${rr} 0 0 0 ${lx},${y2+rr} L${lx},${yb} A${R},${R} 0 0 0 ${lx+2*R},${yb} L${lx+2*R},${yb-22}"/>
+  ${tx("長開口鉤（機械鉤）",250,22)}
+  ${gd(lx+2*R,top,305,top)}${gd(lx+2*R,bot,305,bot)}${dm("a3",295,top,295,bot)}${tx("L0",322,(top+bot)/2)}
+  ${gd(cx+h,y1,255,y1)}${gd(cx+h,y2,255,y2)}${dm("a3",245,y1,245,y2)}${tx("Lb",268,(y1+y2)/2)}
+  <circle cx="${hx}" cy="${yt}" r="3" fill="var(--pri)"/><line class="d" x1="${hx}" y1="${yt}" x2="${hx+hc}" y2="${yt-hc}"/>${tx("r1",hx+hc+16,yt-hc-8)}
+  <circle class="g" cx="${lx}" cy="${y1}" r="${rr}"/><circle cx="${lx}" cy="${y1}" r="3" fill="var(--pri)"/>
+  <line class="d" stroke-width="2" x1="${lx}" y1="${y1}" x2="${lx-c45}" y2="${y1-c45}"/><line class="g" x1="${lx-c45}" y1="${y1-c45}" x2="${lx-40}" y2="${y1-48}"/>${tx("r2",lx-52,y1-54)}
+  <line class="d" x1="${hx}" y1="${top-8}" x2="${hx}" y2="${top-40}" marker-end="url(#a3)"/>${tx("F",hx+14,top-30)}
+  <line class="d" x1="${hx}" y1="${bot+8}" x2="${hx}" y2="${bot+40}" marker-end="url(#a3)"/>${tx("F",hx+14,bot+30)}
+  ${gd(cx-h,y2,cx-h,358)}${gd(cx+h,y2,cx+h,358)}${dm("a3",cx-h,354,cx+h,354)}${tx("OD",cx+h+20,354)}${sec(30,175)}</svg>`;
+}
+const HOOKNOTE="圖示以圓環鉤、長開口鉤為例；其他鉤型的 r2 同樣是鉤與本體交接的彎折半徑，r1 為鉤的中心半徑";
 const LEG=[["d 線徑｜OD 外徑｜D 中徑 = OD − d","L0 自由長（未受力）｜L 工作長度（受壓後）","Na 有效圈數（不含兩端閉合圈）"],
  ["d 線徑｜OD 外徑｜D 中徑 = OD − d｜N 本體圈數","L1、L2 兩支臂長（由本體切點量到臂端）","θ 扭轉角｜R 受力點半徑（彈簧中心到負荷點，F 垂直於臂）"],
- ["d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數","L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d","r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力"]];
+ ["d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數","L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d","r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",HOOKNOTE]];
 
 /* ---- 建立表單 ---- */
 const S={}; // 每頁狀態
@@ -334,6 +356,7 @@ document.addEventListener("click",e=>{
  else if(b.dataset.del!==undefined){const t=+b.dataset.del,c=$("#m"+t);c.children[+b.dataset.i].remove();
   [...c.children].forEach((row,i)=>{const l=row.querySelector("label"),m=FORMS[t].multi;l.dataset.lab=m.label+(i+1);const u=l.dataset.fixed||(m.kind==="none"?"":U[m.kind]);l.textContent=l.dataset.lab+" ("+(m.unit||U[m.kind])+")";
    const d=row.querySelector("button");if(d){d.dataset.i=i}});render(t)}
+ else if(b.dataset.hk!==undefined){const box=b.closest("details");box.querySelectorAll(".hkseg button").forEach(x=>x.classList.toggle("on",x===b));box.querySelectorAll(".hk").forEach(x=>x.hidden=x.dataset.h!==b.dataset.hk)}
  else if(b.dataset.u){document.querySelectorAll("#useg button").forEach(x=>x.classList.toggle("on",x===b));setUnits(b.dataset.u==="i")}
  else if(b.dataset.t!==undefined&&b.parentElement.id==="nav")go(+b.dataset.t);
 });
