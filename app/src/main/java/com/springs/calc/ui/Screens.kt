@@ -24,6 +24,7 @@ fun CompressionScreen(u: Units) {
     var peened by remember { mutableStateOf(false) }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lmaxS to Kind.LEN) + lws.map { it to Kind.LEN })
     Hint()
+    CompressionDiagram()
     MaterialPicker(u, mat) { mat = it }
     Dropdown("端部型式", EndType.entries, end, { it.label }) { end = it }
     Row2({ NumField("線徑 d", u.len, d) }, { NumField("外徑 OD", u.len, od) })
@@ -94,6 +95,7 @@ fun TorsionScreen(u: Units) {
     var peened by remember { mutableStateOf(false) }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l1 to Kind.LEN, l2 to Kind.LEN, arm to Kind.LEN))
     Hint()
+    TorsionDiagram()
     MaterialPicker(u, mat) { mat = it }
     Row2({ NumField("線徑 d", u.len, d) }, { NumField("外徑 OD", u.len, od) })
     Row2({ NumField("本體圈數 N", "圈", nb) }, { NumField("扭轉角 θ", "度", ang) })
@@ -144,6 +146,7 @@ fun ExtensionScreen(u: Units) {
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lw to Kind.LEN,
         fi to Kind.FORCE, fm to Kind.FORCE, r1 to Kind.LEN, r2 to Kind.LEN))
     Hint()
+    ExtensionDiagram()
     MaterialPicker(u, mat) { mat = it }
     Row2({ NumField("線徑 d", u.len, d) }, { NumField("外徑 OD", u.len, od) })
     Row2({ NumField("有效圈數 Na", "圈", na) }, { NumField("自由長(鉤內) L0", u.len, l0) })
