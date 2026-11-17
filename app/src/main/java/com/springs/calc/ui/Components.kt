@@ -21,7 +21,6 @@ fun NumField(label: String, unit: String, state: MutableState<String>) {
     )
 }
 
-@Composable
 fun num(s: MutableState<String>): Double? = s.value.toDoubleOrNull()
 
 @OptIn(ExperimentalMaterial3Api::class)
