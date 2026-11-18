@@ -447,7 +447,7 @@ function render(t){
 
 /* ---- 設計頁示意圖（右側固定） ---- */
 const DZLEG=[["外徑上限：彈簧外徑不可超過的孔徑／空間｜桿徑：彈簧內側的導桿（＝內徑下限）","L1 安裝長度（力 F1）：裝入後的長度與力｜L2 工作最短長度（力 F2）：壓到最短時的長度與力","自由長上限（選填）：彈簧未受力時允許的最大長度"],
- ["L1 安裝長度（兩鉤內側）與力 F1｜L2 最大工作長度與力 F2","外徑上限：可用空間｜每個鉤的內側長度 ≈ 係數 × 中徑","初張力由程式依 F1 反推，需落在建議範圍內"],
+ ["L1 安裝長度（兩鉤內側）與力 F1｜L2 最大工作長度與力 F2","外徑上限：可用空間｜鉤長：每個鉤占的長度 = 係數 × 中徑（見圖）","初張力由程式依 F1 反推，需落在建議範圍內"],
  ["外徑上限：可用空間｜軸徑：扭緊後彈簧內徑需大於軸徑","L1、L2：兩支臂長｜R：受力點半徑（軸心到受力點）","θ1 安裝角度（力 F1）→ θ2 工作角度（力 F2），θ2−θ1 為操作行程"]];
 function dzDiagram(t){
  if(t===0){const base=330,half=40,bore=58,pl=50;
@@ -463,15 +463,17 @@ function dzDiagram(t){
    ${dm("z0",125-bore,46,125+bore,46)}${tx("外徑上限",125,34)}
    ${dm("z0",280-18,64,280+18,64)}${tx("桿徑（內徑下限）",280,50)}</svg>`}
  if(t===1){const half=40,ring=16;
-  const sp=(cx,L,title,F,Ln)=>{const top=60,bot=60+L;let b="";const y0=top+2*ring,y1=bot-2*ring,n=12,st=(y1-y0)/n;
+  const sp=(cx,L,title,F,Ln,hk)=>{const top=60,bot=60+L;let b="";const y0=top+2*ring,y1=bot-2*ring,n=12,st=(y1-y0)/n;
    for(let i=0;i<n;i++){const y=y0+st*i;b+=`<line class="l" stroke-width="4.4" x1="${cx-half}" y1="${y+st*.85}" x2="${cx+half}" y2="${y+st*.1}"/>`}
    return `${tx(title,cx,12)}${b}<circle class="l" stroke-width="4.6" cx="${cx}" cy="${top+ring}" r="${ring}"/><circle class="l" stroke-width="4.6" cx="${cx}" cy="${bot-ring}" r="${ring}"/>
    <line class="d" x1="${cx}" y1="${top-4}" x2="${cx}" y2="${top-34}" marker-end="url(#z1)"/>${tx(F,cx+14,top-22)}
    <line class="d" x1="${cx}" y1="${bot+4}" x2="${cx}" y2="${bot+34}" marker-end="url(#z1)"/>${tx(F,cx+14,bot+22)}
-   ${gd(cx+ring,top,cx+70,top)}${gd(cx+ring,bot,cx+70,bot)}${dm("z1",cx+64,top,cx+64,bot)}${tx(Ln,cx+80,(top+bot)/2)}`};
-  return `<svg viewBox="0 0 360 380" color="currentColor">${ar("z1")}${sp(95,190,"安裝位置","F1","L1")}${sp(245,270,"最大工作長度","F2","L2")}
-   <line class="g" x1="${95-58}" y1="44" x2="${95-58}" y2="330"/><line class="g" x1="${95+58}" y1="44" x2="${95+58}" y2="330"/>
-   ${dm("z1",95-58,346,95+58,346)}${tx("外徑上限",95,364)}</svg>`}
+   ${gd(cx+ring,top,cx+70,top)}${gd(cx+ring,bot,cx+70,bot)}${dm("z1",cx+64,top,cx+64,bot)}${tx(Ln,cx+80,(top+bot)/2)}
+   ${hk?`${dm("z1",cx-30,top,cx-30,y0)}${tx("鉤長",cx-44,(top+y0)/2)}${dm("z1",cx-30,y1,cx-30,bot)}${tx("鉤長",cx-44,(y1+bot)/2)}`:""}`};
+  return `<svg viewBox="0 0 360 400" color="currentColor">${ar("z1")}${sp(105,190,"安裝位置","F1","L1",true)}${sp(255,270,"最大工作長度","F2","L2",false)}
+   <line class="g" x1="${105-58}" y1="44" x2="${105-58}" y2="330"/><line class="g" x1="${105+58}" y1="44" x2="${105+58}" y2="330"/>
+   ${dm("z1",105-58,346,105+58,346)}${tx("外徑上限",105,364)}
+   ${tx("鉤長 = 係數 × 中徑 D（上下兩個鉤各一）",180,390)}</svg>`}
  const cx=150,cy=200,rm=59,wr=9,a2=60*PI/180,Lf=125,Lm=110,sa=(a)=>[cx+rm*Math.cos(a),cy-rm*Math.sin(a)],dr=(a)=>[-Math.sin(a),-Math.cos(a)];
  const arm=(a,len,cls,extra)=>{const p=sa(a),d=dr(a),e=[p[0]+d[0]*len,p[1]+d[1]*len];return `<line class="${cls}" stroke-width="${wr}" stroke-linecap="butt" x1="${p[0]}" y1="${p[1]}" x2="${e[0]}" y2="${e[1]}"${extra||""}/>`};
  const fp=(a,len,k)=>{const p=sa(a),d=dr(a);return [p[0]+d[0]*len*k,p[1]+d[1]*len*k]};

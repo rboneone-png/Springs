@@ -234,14 +234,14 @@ fun ExtensionDiagram() = DiagramCard(
 private val DZ_LEG = listOf(
     listOf("外徑上限：彈簧外徑不可超過的孔徑／空間｜桿徑：彈簧內側的導桿（＝內徑下限）",
         "L1 安裝長度（力 F1）：裝入後的長度與力｜L2 工作最短長度（力 F2）：壓到最短時的長度與力", "自由長上限（選填）：彈簧未受力時允許的最大長度"),
-    listOf("L1 安裝長度（兩鉤內側）與力 F1｜L2 最大工作長度與力 F2", "外徑上限：可用空間｜每個鉤的內側長度 ≈ 係數 × 中徑", "初張力由程式依 F1 反推，需落在建議範圍內"),
+    listOf("L1 安裝長度（兩鉤內側）與力 F1｜L2 最大工作長度與力 F2", "外徑上限：可用空間｜鉤長：每個鉤占的長度 = 係數 × 中徑（見圖）", "初張力由程式依 F1 反推，需落在建議範圍內"),
     listOf("外徑上限：可用空間｜軸徑：扭緊後彈簧內徑需大於軸徑", "L1、L2：兩支臂長｜R：受力點半徑（軸心到受力點）", "θ1 安裝角度（力 F1）→ θ2 工作角度（力 F2），θ2−θ1 為操作行程"),
 )
 
 @Composable
 fun DesignDiagram(type: Int) = DiagramCard(
     "示意圖", DZ_LEG[type.coerceIn(0, 2)], 0,
-    aspect = when (type) { 0 -> 360f / 360f; 1 -> 360f / 380f; else -> 360f / 400f },
+    aspect = when (type) { 0 -> 360f / 360f; 1 -> 360f / 400f; else -> 360f / 400f },
 ) { tm, p -> when (type) { 0 -> dzComp(tm, p); 1 -> dzExt(tm, p); else -> dzTor(tm, p) } }
 
 private fun DrawScope.dzComp(tm: TextMeasurer, p: Pal) {
@@ -274,7 +274,7 @@ private fun DrawScope.dzExt(tm: TextMeasurer, p: Pal) {
     val k = size.width / 360f
     fun o(x: Float, y: Float) = Offset(x * k, y * k)
     val half = 40f; val ring = 16f
-    fun sp(cx: Float, len: Float, title: String, f: String, ln: String) {
+    fun sp(cx: Float, len: Float, title: String, f: String, ln: String, hk: Boolean) {
         val top = 60f; val bot = 60f + len; val y0 = top + 2 * ring; val y1 = bot - 2 * ring; val n = 12; val st = (y1 - y0) / n
         txt(tm, title, o(cx, 12f), p.dim)
         for (i in 0 until n) { val y = y0 + st * i; drawLine(p.line, o(cx - half, y + st * .85f), o(cx + half, y + st * .1f), 4.4f * k, StrokeCap.Round) }
@@ -283,10 +283,15 @@ private fun DrawScope.dzExt(tm: TextMeasurer, p: Pal) {
         arrow(o(cx, bot + 4), o(cx, bot + 34), p.dim); txt(tm, f, o(cx + 14, bot + 22), p.dim)
         guide(o(cx + ring, top), o(cx + 70, top), p.dim); guide(o(cx + ring, bot), o(cx + 70, bot), p.dim)
         dim(o(cx + 64, top), o(cx + 64, bot), p.dim); txt(tm, ln, o(cx + 80, (top + bot) / 2), p.dim)
+        if (hk) {
+            dim(o(cx - 30, top), o(cx - 30, y0), p.dim); txt(tm, "鉤長", o(cx - 44, (top + y0) / 2), p.dim)
+            dim(o(cx - 30, y1), o(cx - 30, bot), p.dim); txt(tm, "鉤長", o(cx - 44, (y1 + bot) / 2), p.dim)
+        }
     }
-    sp(95f, 190f, "安裝位置", "F1", "L1"); sp(245f, 270f, "最大工作長度", "F2", "L2")
-    guide(o(37f, 44f), o(37f, 330f), p.dim); guide(o(153f, 44f), o(153f, 330f), p.dim)
-    dim(o(37f, 346f), o(153f, 346f), p.dim); txt(tm, "外徑上限", o(95f, 364f), p.dim)
+    sp(105f, 190f, "安裝位置", "F1", "L1", true); sp(255f, 270f, "最大工作長度", "F2", "L2", false)
+    guide(o(47f, 44f), o(47f, 330f), p.dim); guide(o(163f, 44f), o(163f, 330f), p.dim)
+    dim(o(47f, 346f), o(163f, 346f), p.dim); txt(tm, "外徑上限", o(105f, 364f), p.dim)
+    txt(tm, "鉤長 = 係數 × 中徑 D（上下兩個鉤各一）", o(180f, 390f), p.dim)
 }
 
 private fun DrawScope.dzTor(tm: TextMeasurer, p: Pal) {
