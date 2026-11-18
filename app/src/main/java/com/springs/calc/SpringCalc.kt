@@ -229,11 +229,14 @@ object SpringCalc {
 
     private fun pickDesign(kreq: Double, out: List<DesignCand>): DesignResult {
         val pass = out.filter { it.fails.isEmpty() }
-        val src = if (pass.isNotEmpty()) pass.sortedBy { it.level * 1e12 + it.weight }
-        else out.sortedWith(compareBy({ it.fails.size }, { it.weight }))
+        // 排序：預估壽命由最佳到最差；再比疲勞安全係數；最後線材用量少者優先
+        val byLife = compareByDescending<DesignCand> { it.v["N"] ?: 0.0 }
+            .thenByDescending { it.v["nf"] ?: 0.0 }.thenBy { it.weight }
+        val cmp: Comparator<DesignCand> = if (pass.isNotEmpty()) byLife else compareBy<DesignCand> { it.fails.size }.then(byLife)
+        val src = (if (pass.isNotEmpty()) pass else out).sortedWith(cmp)
         val seen = HashSet<Double>(); val list = ArrayList<DesignCand>()
         for (c in src) { if (!seen.add(c.d)) continue; list.add(c); if (list.size >= 6) break }
-        return DesignResult(kreq, list, pass.size, out.size)
+        return DesignResult(kreq, list.sortedWith(cmp), pass.size, out.size)
     }
 
     data class CompSpec(val mat: Material, val end: EndType, val odMax: Double, val idMin: Double, val l0Max: Double,
@@ -305,7 +308,8 @@ object SpringCalc {
                     out.add(DesignCand(d, dm, na, fails, warns, lv, PI * d * d / 4 * PI * dm * (na + 3),
                         mapOf("OD" to dm + d, "Lb" to (na + 1) * d, "L0" to l0, "k" to k, "Fi" to fi, "FiLo" to it.fiLo, "FiHi" to it.fiHi,
                             "F1" to sp.f1, "F2" to f2, "tau" to tb, "hb" to hb, "ht" to ht, "rB" to sB.ratio, "rH" to sH.ratio, "rT" to sT.ratio,
-                            "N" to life, "below" to (if (ef?.belowThousand ?: true) 1.0 else 0.0),
+                            "N" to life, "nf" to (if (ef != null) minOf(ef.body.fatigueSf, ef.hookBend.fatigueSf, ef.hookTors.fatigueSf) else 0.0),
+                            "below" to (if (ef?.belowThousand ?: true) 1.0 else 0.0),
                             "Nbody" to (ef?.body?.cycles ?: 0.0), "Nhb" to (ef?.hookBend?.cycles ?: 0.0), "Nht" to (ef?.hookTors?.cycles ?: 0.0),
                             "C" to dm / d), tag = ef?.governing ?: "-"))
                 }
@@ -344,7 +348,7 @@ object SpringCalc {
                     if (!m.steel) warns.add("疲勞係數以鋼線為基礎，僅供參考")
                     out.add(DesignCand(d, dm, nb, fails, warns, st.verdict.ordinal, PI * d * d / 4 * PI * dm * nb,
                         mapOf("OD" to dm + d, "idW" to idW, "nb" to nb, "naEq" to na, "body" to body, "k" to k, "M1" to m1, "M2" to m2a,
-                            "F2" to m2a / sp.armR, "sigma" to s2, "ratio" to st.ratio, "thTot" to thTot, "N" to ft.cycles,
+                            "F2" to m2a / sp.armR, "sigma" to s2, "ratio" to st.ratio, "thTot" to thTot, "N" to ft.cycles, "nf" to ft.fatigueSf,
                             "below" to (if (ft.belowThousand) 1.0 else 0.0), "C" to c)))
                 }
                 dm += .25

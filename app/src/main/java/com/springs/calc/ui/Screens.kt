@@ -291,7 +291,7 @@ fun ExtensionScreen(u: Units) {
     }
 }
 
-// ================= 規格選型 =================
+// ================= 規格設計 =================
 private fun strengthOf(x: Double, bending: Boolean) = Strength(x, if (bending)
     when { x <= .65 -> Verdict.OK; x <= .78 -> Verdict.CAUTION; else -> Verdict.FAIL }
 else when { x <= .45 -> Verdict.OK; x <= .65 -> Verdict.CAUTION; else -> Verdict.FAIL })
@@ -321,6 +321,7 @@ fun DesignScreen(u: Units) {
         tA1 to Kind.LEN, tA2 to Kind.LEN, tF1 to Kind.FORCE, tF2 to Kind.FORCE))
     val types = listOf("壓縮彈簧", "拉伸彈簧", "扭力彈簧")
     Text("依可用空間、彈簧型式、操作位置與力量，計算建議的彈簧規格。", style = MaterialTheme.typography.bodySmall)
+    DesignDiagram(type)
     Dropdown("彈簧型式", types.indices.toList(), type, { types[it] }) { type = it }
     MaterialPicker(u, mat) { mat = it }
     NumField("外徑上限（可用空間）", u.len, odMax)
@@ -380,9 +381,9 @@ fun DesignScreen(u: Units) {
     val r = res ?: return
     val kTxt = if (type == 2) "${f(u.torqueOut(r.kreq), 3)} ${u.torqueRate}" else "${f(u.rateOut(r.kreq), 3)} ${u.rate}"
     ResultCard(listOf("所需彈簧常數 k" to kTxt, "評估組合數" to "${r.total}", "完全符合條件的組合數" to "${r.pass}"),
-        listOf(if (r.ok) "以下依「應力等級優先、再以線材用量最少」排序，每種線徑只列最佳一組。"
+        listOf(if (r.ok) "方案依預估壽命由最佳排到最差；每種線徑只列壽命最佳的一組。"
         else "找不到完全符合全部條件的規格，以下為最接近的方案，各卡片已標出不符項目。可放寬空間、力量誤差或目標壽命後再試。"),
-        title = "選型結果摘要")
+        title = "設計結果摘要")
     r.cands.forEachIndexed { i, c ->
         val x = c.v; fun g(k: String) = x[k] ?: 0.0
         val title = "方案 ${i + 1}：線徑 ${f(u.lenOut(c.d), 3)} ${u.len}｜外徑 ${f(u.lenOut(g("OD")), 2)} ${u.len}"
@@ -404,6 +405,7 @@ fun DesignScreen(u: Units) {
                 "本體剪應力" to "${f(u.stressOut(g("tau")), 1)} ${u.stress}", sRow("　判定 τ/Sut", strengthOf(g("rB"), false)),
                 "鉤環彎曲應力" to "${f(u.stressOut(g("hb")), 1)} ${u.stress}", sRow("　判定 σ/Sut", strengthOf(g("rH"), true)),
                 "鉤側彎扭轉應力" to "${f(u.stressOut(g("ht")), 1)} ${u.stress}", sRow("　判定 τ/Sut", strengthOf(g("rT"), false)),
+                "疲勞安全係數（取最小）" to sf(g("nf")),
                 "預估壽命（取最短：${c.tag}）" to lifeText(g("N"), g("below") > 0, "無限壽命"))
             else -> listOf("線徑 d" to "${f(u.lenOut(c.d), 3)} ${u.len}",
                 "中徑 D／旋繞比 C" to "${f(u.lenOut(c.dm), 2)} ${u.len}／${f(g("C"), 2)}",
@@ -415,7 +417,7 @@ fun DesignScreen(u: Units) {
         }
         ResultCard(rows, c.fails.map { "不符：$it" } + c.warns, title = title)
     }
-    Text("選型假設：線徑取常用規格系列，中徑以 0.25 mm 掃描，圈數取 0.25 圈的倍數。壓縮：壓並力需 ≥ 1.15×工作力、旋繞比 4～12、剪應力 ≤ 0.65Sut；" +
+    Text("設計假設：線徑取常用規格系列，中徑以 0.25 mm 掃描，圈數取 0.25 圈的倍數。壓縮：壓並力需 ≥ 1.15×工作力、旋繞比 4～12、剪應力 ≤ 0.65Sut；" +
         "拉伸：自由長 = (Na+1)·d + 2×鉤內長度，初張力由 F1 反推且需在建議範圍，鉤環 r1 = D/2、r2 = 2d；扭力：臂長計入等效圈數，扭緊後內徑需大於軸徑、彎曲應力 ≤ 0.78Sut。" +
         "結果為初步建議，請到對應計算頁做完整驗算。", style = MaterialTheme.typography.bodySmall)
 }

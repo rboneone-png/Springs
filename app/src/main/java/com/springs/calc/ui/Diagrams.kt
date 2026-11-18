@@ -229,3 +229,99 @@ fun ExtensionDiagram() = DiagramCard(
     arrow(o(hx, top2 - 6), o(hx, top2 - 28), p.dim); txt(tm, "F", o(hx + 14, top2 - 18), p.dim)
     arrow(o(hx, bot2 + 6), o(hx, bot2 + 28), p.dim); txt(tm, "F", o(hx + 14, bot2 + 18), p.dim)
 }
+
+// ---------- 設計頁示意圖 ----------
+private val DZ_LEG = listOf(
+    listOf("外徑上限：彈簧外徑不可超過的孔徑／空間｜桿徑：彈簧內側的導桿（＝內徑下限）",
+        "L1 安裝長度（力 F1）：裝入後的長度與力｜L2 工作最短長度（力 F2）：壓到最短時的長度與力", "自由長上限（選填）：彈簧未受力時允許的最大長度"),
+    listOf("L1 安裝長度（兩鉤內側）與力 F1｜L2 最大工作長度與力 F2", "外徑上限：可用空間｜每個鉤的內側長度 ≈ 係數 × 中徑", "初張力由程式依 F1 反推，需落在建議範圍內"),
+    listOf("外徑上限：可用空間｜軸徑：扭緊後彈簧內徑需大於軸徑", "L1、L2：兩支臂長｜R：受力點半徑（軸心到受力點）", "θ1 安裝角度（力 F1）→ θ2 工作角度（力 F2），θ2−θ1 為操作行程"),
+)
+
+@Composable
+fun DesignDiagram(type: Int) = DiagramCard(
+    "示意圖", DZ_LEG[type.coerceIn(0, 2)], 0,
+    aspect = when (type) { 0 -> 360f / 360f; 1 -> 360f / 380f; else -> 360f / 400f },
+) { tm, p -> when (type) { 0 -> dzComp(tm, p); 1 -> dzExt(tm, p); else -> dzTor(tm, p) } }
+
+private fun DrawScope.dzComp(tm: TextMeasurer, p: Pal) {
+    val k = size.width / 360f
+    fun o(x: Float, y: Float) = Offset(x * k, y * k)
+    val base = 330f; val half = 40f; val bore = 58f; val pl = 50f
+    fun panel(cx: Float, top: Float, title: String, f: String, ln: String) {
+        txt(tm, title, o(cx, 12f), p.dim)
+        drawRect(p.line, o(cx - 18, 82f), Size(36f * k, (base - 82f) * k), alpha = 0.1f)
+        drawRect(p.line, o(cx - 18, 82f), Size(36f * k, (base - 82f) * k), style = Stroke(1.2.dp.toPx()))
+        guide(o(cx - bore, 62f), o(cx - bore, base), p.dim); guide(o(cx + bore, 62f), o(cx + bore, base), p.dim)
+        val path = Path()
+        for (i in 0..9) {
+            val x = if (i % 2 == 1) cx + half else cx - half; val y = top + (base - top) * i / 9
+            if (i == 0) path.moveTo(x * k, y * k) else path.lineTo(x * k, y * k)
+        }
+        drawPath(path, p.line, style = Stroke(4.6f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawLine(p.line, o(cx - pl, top), o(cx + pl, top), 5f * k)
+        drawLine(p.line, o(cx - pl - 14, base), o(cx + pl + 14, base), 6f * k)
+        arrow(o(cx + 34, top - 36), o(cx + 34, top - 6), p.dim); txt(tm, f, o(cx + 52, top - 22), p.dim)
+        guide(o(cx - pl, top), o(cx - 84, top), p.dim); dim(o(cx - 78, top), o(cx - 78, base), p.dim)
+        txt(tm, ln, o(cx - 94, (top + base) / 2), p.dim)
+    }
+    panel(125f, 110f, "安裝位置", "F1", "L1"); panel(280f, 190f, "工作位置（最短）", "F2", "L2")
+    dim(o(125f - bore, 46f), o(125f + bore, 46f), p.dim); txt(tm, "外徑上限", o(125f, 34f), p.dim)
+    dim(o(280f - 18, 64f), o(280f + 18, 64f), p.dim); txt(tm, "桿徑（內徑下限）", o(280f, 50f), p.dim)
+}
+
+private fun DrawScope.dzExt(tm: TextMeasurer, p: Pal) {
+    val k = size.width / 360f
+    fun o(x: Float, y: Float) = Offset(x * k, y * k)
+    val half = 40f; val ring = 16f
+    fun sp(cx: Float, len: Float, title: String, f: String, ln: String) {
+        val top = 60f; val bot = 60f + len; val y0 = top + 2 * ring; val y1 = bot - 2 * ring; val n = 12; val st = (y1 - y0) / n
+        txt(tm, title, o(cx, 12f), p.dim)
+        for (i in 0 until n) { val y = y0 + st * i; drawLine(p.line, o(cx - half, y + st * .85f), o(cx + half, y + st * .1f), 4.4f * k, StrokeCap.Round) }
+        drawCircle(p.line, ring * k, o(cx, top + ring), style = Stroke(4.6f * k)); drawCircle(p.line, ring * k, o(cx, bot - ring), style = Stroke(4.6f * k))
+        arrow(o(cx, top - 4), o(cx, top - 34), p.dim); txt(tm, f, o(cx + 14, top - 22), p.dim)
+        arrow(o(cx, bot + 4), o(cx, bot + 34), p.dim); txt(tm, f, o(cx + 14, bot + 22), p.dim)
+        guide(o(cx + ring, top), o(cx + 70, top), p.dim); guide(o(cx + ring, bot), o(cx + 70, bot), p.dim)
+        dim(o(cx + 64, top), o(cx + 64, bot), p.dim); txt(tm, ln, o(cx + 80, (top + bot) / 2), p.dim)
+    }
+    sp(95f, 190f, "安裝位置", "F1", "L1"); sp(245f, 270f, "最大工作長度", "F2", "L2")
+    guide(o(37f, 44f), o(37f, 330f), p.dim); guide(o(153f, 44f), o(153f, 330f), p.dim)
+    dim(o(37f, 346f), o(153f, 346f), p.dim); txt(tm, "外徑上限", o(95f, 364f), p.dim)
+}
+
+private fun DrawScope.dzTor(tm: TextMeasurer, p: Pal) {
+    val k = size.width / 360f
+    fun o(x: Float, y: Float) = Offset(x * k, y * k)
+    val cx = 150f; val cy = 200f; val rm = 59f; val wr = 9f * k
+    val pi = Math.PI.toFloat(); val a2 = 60f * pi / 180f; val lf = 125f; val lm = 110f
+    fun sx(a: Float) = cx + rm * cos(a); fun sy(a: Float) = cy - rm * sin(a)
+    fun drx(a: Float) = -sin(a); fun dry(a: Float) = -cos(a)
+    val dash = PathEffect.dashPathEffect(floatArrayOf(7f * k, 5f * k))
+    fun arm(a: Float, len: Float, dashed: Boolean) {
+        val x = sx(a); val y = sy(a)
+        drawLine(p.line, o(x, y), o(x + drx(a) * len, y + dry(a) * len), wr, StrokeCap.Butt,
+            pathEffect = if (dashed) dash else null, alpha = if (dashed) 0.4f else 1f)
+    }
+    val a1 = pi; val a2t = pi + a2
+    val f1x = sx(a1) + drx(a1) * lm * .8f; val f1y = sy(a1) + dry(a1) * lm * .8f
+    val f2x = sx(a2t) + drx(a2t) * lm * .8f; val f2y = sy(a2t) + dry(a2t) * lm * .8f
+    val n2x = -dry(a2t); val n2y = drx(a2t)
+    drawCircle(p.dim, 128f * k, o(cx, cy), style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))))
+    txt(tm, "外徑上限", o(cx, cy - 138), p.dim)
+    drawCircle(p.line, rm * k, o(cx, cy), style = Stroke(wr))
+    drawCircle(p.line, 26f * k, o(cx, cy), alpha = 0.12f)
+    drawCircle(p.line, 26f * k, o(cx, cy), style = Stroke(1.2.dp.toPx()))
+    dim(o(cx - 26, cy), o(cx + 26, cy), p.dim); txt(tm, "軸徑", o(cx, cy + 14), p.dim)
+    arm(0f, lf, false)
+    guide(o(cx + rm, cy - lf), o(cx + rm + 66, cy - lf), p.dim); dim(o(cx + rm + 60, cy), o(cx + rm + 60, cy - lf), p.dim)
+    txt(tm, "L1", o(cx + rm + 76, cy - lf / 2), p.dim)
+    arm(a1, lm, false); arm(a2t, lm, true)
+    val ra = 84f
+    drawArc(p.dim, 180f, -60f, false, o(cx - ra, cy - ra), Size(2 * ra * k, 2 * ra * k), style = Stroke(1.5.dp.toPx()))
+    txt(tm, "θ2−θ1", o(cx - ra - 26, cy + 46), p.dim)
+    arrow(o(f1x - 44, f1y), o(f1x - 6, f1y), p.dim); txt(tm, "F1", o(f1x - 56, f1y), p.dim)
+    arrow(o(f2x - n2x * 44, f2y - n2y * 44), o(f2x - n2x * 6, f2y - n2y * 6), p.dim); txt(tm, "F2", o(f2x - n2x * 58, f2y - n2y * 58), p.dim)
+    guide(o(cx, cy), o(f1x, f1y), p.dim); txt(tm, "R", o((cx + f1x) / 2 + 12, (cy + f1y) / 2), p.dim)
+    txt(tm, "L2", o(sx(a1) + drx(a1) * lm, sy(a1) + dry(a1) * lm + 14), p.dim)
+    txt(tm, "θ1 位置（實線）", o(cx - 70, cy + 160), p.dim); txt(tm, "θ2 位置（虛線）", o(cx + 70, cy + 160), p.dim)
+}

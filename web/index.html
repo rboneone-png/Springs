@@ -55,7 +55,7 @@ nav button.on{color:var(--pri);font-weight:700;box-shadow:inset 0 3px 0 var(--pr
 <section class="panel" id="p3"></section>
 <p class="small">本工具為估算用途：疲勞與強度判定依 Shigley/Zimmerli 等教科書做法，非保證值，重要用途請以實測為準。左右滑動可切換彈簧種類。</p>
 </main>
-<nav id="nav"><button data-t="0" class="on">壓縮</button><button data-t="1">扭力</button><button data-t="2">拉伸</button><button data-t="3">選型</button></nav>
+<nav id="nav"><button data-t="0" class="on">壓縮</button><button data-t="1">扭力</button><button data-t="2">拉伸</button><button data-t="3">設計</button></nav>
 
 <script id="calc">
 /* ===== 計算核心（SI：mm、N、MPa、N·mm） ===== */
@@ -140,19 +140,22 @@ function extensionFatigue(d,D,k,l0,lw,lmin,fi,r1,r2,m,peen){
  const all=[["本體",body],["鉤環彎曲",hb],["鉤側彎扭轉",ht]];
  all.sort((a,b)=>a[1].N-b[1].N||a[1].nf-b[1].nf);
  const w=[...new Set([...body.w,...hb.w,...ht.w])];if(lmin>=lw)w.push("循環最小長度需小於工作長度");
- return {body,hb,ht,N:all[0][1].N,below:all[0][1].below,gov:all[0][0],w};
+ return {body,hb,ht,N:all[0][1].N,below:all[0][1].below,gov:all[0][0],nf:Math.min(body.nf,hb.nf,ht.nf),w};
 }
 
-/* ===== 規格選型（依空間、型式、操作位置與力量，搜尋建議的彈簧規格） ===== */
+/* ===== 規格設計（依空間、型式、操作位置與力量，搜尋建議的彈簧規格） ===== */
 const STD_D=[.2,.25,.3,.35,.4,.45,.5,.55,.6,.7,.8,.9,1,1.1,1.2,1.4,1.5,1.6,1.8,2,2.2,2.5,2.8,3,3.2,3.5,4,4.5,5,5.5,6,6.5,7,8,9,10,11,12,13,14,15,16];
 const roundTo=(x,s)=>Math.round(x/s)*s;
 const VR={compression:{cLo:4,cHi:12},extension:{cLo:4,cHi:12},torsion:{cLo:4,cHi:14}};
+const cmpD=(x,y)=>x===y?0:(x>y?-1:1); // 由大到小（含 Infinity）
 function pickDesign(out){
  const pass=out.filter(c=>c.fails.length===0);
- const key=c=>c.level*1e12+c.weight;
- const src=pass.length?pass.sort((a,b)=>key(a)-key(b)):out.slice().sort((a,b)=>a.fails.length-b.fails.length||a.weight-b.weight);
+ // 排序：預估壽命由最佳到最差（再比疲勞安全係數、最後線材用量少者優先）
+ const byLife=(a,b)=>cmpD(a.v.N,b.v.N)||cmpD(a.v.nf,b.v.nf)||a.weight-b.weight;
+ const src=pass.length?pass.sort(byLife):out.slice().sort((a,b)=>a.fails.length-b.fails.length||byLife(a,b));
  const seen=new Set(),list=[];
  for(const c of src){if(seen.has(c.d))continue;seen.add(c.d);list.push(c);if(list.length>=6)break}
+ list.sort(pass.length?byLife:(a,b)=>a.fails.length-b.fails.length||byLife(a,b));
  return {cands:list,pass:pass.length,total:out.length,ok:pass.length>0};
 }
 function designCompression(sp){
@@ -196,7 +199,7 @@ function designExtension(sp){
    if(sp.nTarget&&ef.N<sp.nTarget)fails.push("預估壽命低於目標");
    if(!m.steel)warns.push("疲勞係數以鋼線為基礎，僅供參考");
    out.push({d,D,na,fails,warns,level:lv,weight:PI*d*d/4*PI*D*(na+3),
-    v:{OD:D+d,Lb:(na+1)*d,L0,k,Fi,FiLo:it.lo,FiHi:it.hi,F1:sp.f1,F2,tau:tb,hb,ht,rB:sB.r,rH:sH.r,rT:sT.r,N:ef.N,below:ef.below,gov:ef.gov,C:D/d,sut:S}});
+    v:{OD:D+d,Lb:(na+1)*d,L0,k,Fi,FiLo:it.lo,FiHi:it.hi,F1:sp.f1,F2,tau:tb,hb,ht,rB:sB.r,rH:sH.r,rT:sT.r,N:ef.N,below:ef.below,gov:ef.gov,nf:ef.nf===undefined?0:ef.nf,C:D/d,sut:S}});
   }}
  return Object.assign({kreq},pickDesign(out));
 }
@@ -217,7 +220,7 @@ function designTorsion(sp){
    if(sp.nTarget&&ft.N<sp.nTarget)fails.push("預估壽命低於目標");
    if(!m.steel)warns.push("疲勞係數以鋼線為基礎，僅供參考");
    out.push({d,D,na:nb,fails,warns,level:st.v,weight:PI*d*d/4*PI*D*nb,
-    v:{OD:D+d,idW,nb,naEq:na,body,k,M1,M2:M2a,F2:M2a/sp.armR,sigma:s2,ratio:st.r,thTot,N:ft.N,below:ft.below,C:c,sut:S}});
+    v:{OD:D+d,idW,nb,naEq:na,body,k,M1,M2:M2a,F2:M2a/sp.armR,sigma:s2,ratio:st.r,thTot,N:ft.N,below:ft.below,nf:ft.nf,C:c,sut:S}});
   }}
  return Object.assign({kreq},pickDesign(out));
 }
@@ -254,7 +257,7 @@ const FORMS={
     multi:{id:"lw",label:"工作長度 L",kind:"len",def:80,add:"新增工作長度"},
     extra:[["lmin","壽命測試按壓回覆位置（空白＝自由長，此時負荷＝初張力）","len",""]]}
 };
-const TITLES=["壓縮彈簧","扭力彈簧","拉伸彈簧","規格選型"];
+const TITLES=["壓縮彈簧","扭力彈簧","拉伸彈簧","規格設計"];
 
 /* ---- 參數位置圖（SVG） ---- */
 const ar=(id)=>`<defs><marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9" fill="none" stroke="var(--pri)" stroke-width="1.6"/></marker></defs>`;
@@ -441,13 +444,59 @@ function render(t){
  o.innerHTML=h;
 }
 
-/* ---- 規格選型頁 ---- */
+
+/* ---- 設計頁示意圖（右側固定） ---- */
+const DZLEG=[["外徑上限：彈簧外徑不可超過的孔徑／空間｜桿徑：彈簧內側的導桿（＝內徑下限）","L1 安裝長度（力 F1）：裝入後的長度與力｜L2 工作最短長度（力 F2）：壓到最短時的長度與力","自由長上限（選填）：彈簧未受力時允許的最大長度"],
+ ["L1 安裝長度（兩鉤內側）與力 F1｜L2 最大工作長度與力 F2","外徑上限：可用空間｜每個鉤的內側長度 ≈ 係數 × 中徑","初張力由程式依 F1 反推，需落在建議範圍內"],
+ ["外徑上限：可用空間｜軸徑：扭緊後彈簧內徑需大於軸徑","L1、L2：兩支臂長｜R：受力點半徑（軸心到受力點）","θ1 安裝角度（力 F1）→ θ2 工作角度（力 F2），θ2−θ1 為操作行程"]];
+function dzDiagram(t){
+ if(t===0){const base=330,half=40,bore=58,pl=50;
+  const panel=(cx,top,title,F,Ln)=>{let pts="";for(let i=0;i<=9;i++)pts+=`${i%2?cx+half:cx-half},${top+(base-top)*i/9} `;
+   return `${tx(title,cx,12)}
+   <rect x="${cx-18}" y="82" width="36" height="${base-82}" fill="currentColor" opacity=".1"/><rect class="l" x="${cx-18}" y="82" width="36" height="${base-82}" stroke-width="1.2"/>
+   <line class="g" x1="${cx-bore}" y1="62" x2="${cx-bore}" y2="${base}"/><line class="g" x1="${cx+bore}" y1="62" x2="${cx+bore}" y2="${base}"/>
+   <polyline class="l" stroke-width="4.6" points="${pts}"/>
+   <line class="l" stroke-width="5" x1="${cx-pl}" y1="${top}" x2="${cx+pl}" y2="${top}"/><line class="l" stroke-width="6" x1="${cx-pl-14}" y1="${base}" x2="${cx+pl+14}" y2="${base}"/>
+   <line class="d" x1="${cx+34}" y1="${top-36}" x2="${cx+34}" y2="${top-6}" marker-end="url(#z0)"/>${tx(F,cx+52,top-22)}
+   ${gd(cx-pl,top,cx-84,top)}${dm("z0",cx-78,top,cx-78,base)}${tx(Ln,cx-94,(top+base)/2)}`};
+  return `<svg viewBox="0 0 360 360" color="currentColor">${ar("z0")}${panel(125,110,"安裝位置","F1","L1")}${panel(280,190,"工作位置（最短）","F2","L2")}
+   ${dm("z0",125-bore,46,125+bore,46)}${tx("外徑上限",125,34)}
+   ${dm("z0",280-18,64,280+18,64)}${tx("桿徑（內徑下限）",280,50)}</svg>`}
+ if(t===1){const half=40,ring=16;
+  const sp=(cx,L,title,F,Ln)=>{const top=60,bot=60+L;let b="";const y0=top+2*ring,y1=bot-2*ring,n=12,st=(y1-y0)/n;
+   for(let i=0;i<n;i++){const y=y0+st*i;b+=`<line class="l" stroke-width="4.4" x1="${cx-half}" y1="${y+st*.85}" x2="${cx+half}" y2="${y+st*.1}"/>`}
+   return `${tx(title,cx,12)}${b}<circle class="l" stroke-width="4.6" cx="${cx}" cy="${top+ring}" r="${ring}"/><circle class="l" stroke-width="4.6" cx="${cx}" cy="${bot-ring}" r="${ring}"/>
+   <line class="d" x1="${cx}" y1="${top-4}" x2="${cx}" y2="${top-34}" marker-end="url(#z1)"/>${tx(F,cx+14,top-22)}
+   <line class="d" x1="${cx}" y1="${bot+4}" x2="${cx}" y2="${bot+34}" marker-end="url(#z1)"/>${tx(F,cx+14,bot+22)}
+   ${gd(cx+ring,top,cx+70,top)}${gd(cx+ring,bot,cx+70,bot)}${dm("z1",cx+64,top,cx+64,bot)}${tx(Ln,cx+80,(top+bot)/2)}`};
+  return `<svg viewBox="0 0 360 380" color="currentColor">${ar("z1")}${sp(95,190,"安裝位置","F1","L1")}${sp(245,270,"最大工作長度","F2","L2")}
+   <line class="g" x1="${95-58}" y1="44" x2="${95-58}" y2="330"/><line class="g" x1="${95+58}" y1="44" x2="${95+58}" y2="330"/>
+   ${dm("z1",95-58,346,95+58,346)}${tx("外徑上限",95,364)}</svg>`}
+ const cx=150,cy=200,rm=59,wr=9,a2=60*PI/180,Lf=125,Lm=110,sa=(a)=>[cx+rm*Math.cos(a),cy-rm*Math.sin(a)],dr=(a)=>[-Math.sin(a),-Math.cos(a)];
+ const arm=(a,len,cls,extra)=>{const p=sa(a),d=dr(a),e=[p[0]+d[0]*len,p[1]+d[1]*len];return `<line class="${cls}" stroke-width="${wr}" stroke-linecap="butt" x1="${p[0]}" y1="${p[1]}" x2="${e[0]}" y2="${e[1]}"${extra||""}/>`};
+ const fp=(a,len,k)=>{const p=sa(a),d=dr(a);return [p[0]+d[0]*len*k,p[1]+d[1]*len*k]};
+ const A1=PI,A2=PI+a2,f1=fp(A1,Lm,.8),f2=fp(A2,Lm,.8),n1=[-1,0],n2=[-Math.cos(A2)*0+ -dr(A2)[1], dr(A2)[0]]; // 垂直於臂
+ const ra=84,ap=(a)=>[cx+ra*Math.cos(a),cy-ra*Math.sin(a)],pa=ap(A1),pb=ap(A2);
+ return `<svg viewBox="0 0 360 400" color="currentColor">${ar("z2")}
+  <circle class="g" cx="${cx}" cy="${cy}" r="128"/>${tx("外徑上限",cx,cy-138)}
+  <circle class="l" stroke-width="${wr}" cx="${cx}" cy="${cy}" r="${rm}"/>
+  <circle cx="${cx}" cy="${cy}" r="26" fill="currentColor" opacity=".12"/><circle class="l" cx="${cx}" cy="${cy}" r="26" stroke-width="1.2"/>${dm("z2",cx-26,cy,cx+26,cy)}${tx("軸徑",cx,cy+14)}
+  ${arm(0,Lf,"l")}${gd(cx+rm,cy-Lf,cx+rm+66,cy-Lf)}${dm("z2",cx+rm+60,cy,cx+rm+60,cy-Lf)}${tx("L1",cx+rm+76,cy-Lf/2)}
+  ${arm(A1,Lm,"l")}${arm(A2,Lm,"l",' stroke-dasharray="7 5" opacity=".4"')}
+  <path class="d" d="M${pa[0]},${pa[1]} A${ra},${ra} 0 0 0 ${pb[0]},${pb[1]}"/>${tx("θ2−θ1",cx-ra-26,cy+46)}
+  <line class="d" x1="${f1[0]-44}" y1="${f1[1]}" x2="${f1[0]-6}" y2="${f1[1]}" marker-end="url(#z2)"/>${tx("F1",f1[0]-56,f1[1])}
+  <line class="d" x1="${f2[0]+n2[0]*-44}" y1="${f2[1]+n2[1]*-44}" x2="${f2[0]+n2[0]*-6}" y2="${f2[1]+n2[1]*-6}" marker-end="url(#z2)"/>${tx("F2",f2[0]-n2[0]*58,f2[1]-n2[1]*58)}
+  <line class="g" x1="${cx}" y1="${cy}" x2="${f1[0]}" y2="${f1[1]}"/>${tx("R",(cx+f1[0])/2+12,(cy+f1[1])/2)}
+  ${tx("L2",sa(A1)[0]+dr(A1)[0]*Lm+0,sa(A1)[1]+dr(A1)[1]*Lm+14)}
+  ${tx("θ1 位置（實線）",cx-70,cy+160)}${tx("θ2 位置（虛線）",cx+70,cy+160)}</svg>`;
+}
+/* ---- 規格設計頁 ---- */
 function dz(id,lab,kind,def,unit){
  const u=unit||(kind==="none"?"":U[kind]);const v=def===""?"":clean(fromSi(def,kind));
  return `<div><label data-k="${kind}" data-lab="${lab}" data-fixed="${unit||""}">${lab}${u?" ("+u+")":""}</label><input type="text" inputmode="decimal" data-t="3" data-id="${id}" data-k="${kind}" value="${v}"></div>`;
 }
 function buildDesign(){
- $("#p3").innerHTML=`<div class="card"><h3>設計需求</h3><div class="grid">
+ $("#p3").innerHTML=`<div class="layout"><aside class="diag"><details class="card" open><summary>示意圖</summary><div id="dzdiag"></div><div id="dzleg"></div></details></aside><div class="col"><div class="card"><h3>設計需求</h3><div class="grid">
   <div class="full"><label>彈簧型式</label><select data-t="3" data-id="type" id="dz-type"><option value="0">壓縮彈簧</option><option value="1">拉伸彈簧</option><option value="2">扭力彈簧</option></select></div>
   <div class="full"><label>材質</label><select data-t="3" data-id="mat">${MATS.map((m,i)=>`<option value="${i}">${m.n}</option>`).join("")}</select></div>
   ${dz("odMax","外徑上限（可用空間）","len",30)}
@@ -468,11 +517,12 @@ function buildDesign(){
    ${dz("t_th2","工作角度 θ2","none",90,"度")}${dz("t_f2","θ2 時力量","force",10)}</div></div>
   ${dz("nTarget","目標壽命（次，空白＝不要求）","none",100000,"次")}${dz("tol","力量容許誤差","none",5,"%")}
   <div class="full sw"><input type="checkbox" id="pn3" data-t="3" data-id="peen"><label for="pn3" style="margin:0;color:var(--fg)">珠擊處理 (Shot peened)：提升零件的抗疲勞壽命與耐用度(特殊用途選用)</label></div>
- </div></div><div id="r3"></div>`;
+ </div></div><div id="r3"></div></div></div>`;
 }
 function renderDesign(){
  const o=$("#r3");if(!o)return;
  const ty=+$("#dz-type").value;
+ if($("#dzdiag").dataset.t!==String(ty)){$("#dzdiag").innerHTML=dzDiagram(ty);$("#dzdiag").dataset.t=ty;$("#dzleg").innerHTML=DZLEG[ty].map(x=>`<div class="small">${x}</div>`).join("")}
  document.querySelectorAll("#p3 .dsec").forEach(e=>e.hidden=+e.dataset.for!==ty);
  const g=id=>{const el=$(`#p3 [data-id="${id}"]`);if(!el)return null;const t=el.value.trim();if(t==="")return null;
   const v=Number(t.replace(",","."));el.classList.toggle("bad",isNaN(v));return isNaN(v)?NaN:toSi(v,el.dataset.k)};
@@ -491,8 +541,8 @@ function renderDesign(){
  if(err){o.innerHTML=`<div class="card w">${err}</div>`;return}
  const sr=(l,x,b)=>sRow(l,{r:x,v:b?(x<=.65?0:x<=.78?1:2):(x<=.45?0:x<=.65?1:2)});
  const kTxt=ty===2?`${f(oTq(r.kreq),3)} ${U.tqr}`:`${f(oRate(r.kreq),3)} ${U.rate}`;
- let h=card("選型結果摘要",[["所需彈簧常數 k",kTxt],["評估組合數",String(r.total)],["完全符合條件的組合數",String(r.pass)]],
-  r.ok?["以下依「應力等級優先、再以線材用量最少」排序，每種線徑只列最佳一組。"]:["找不到完全符合全部條件的規格，以下為最接近的方案，各卡片已標出不符項目。可放寬空間、力量誤差或目標壽命後再試。"]);
+ let h=card("設計結果摘要",[["所需彈簧常數 k",kTxt],["評估組合數",String(r.total)],["完全符合條件的組合數",String(r.pass)]],
+  r.ok?["方案依預估壽命由最佳排到最差；每種線徑只列壽命最佳的一組。"]:["找不到完全符合全部條件的規格，以下為最接近的方案，各卡片已標出不符項目。可放寬空間、力量誤差或目標壽命後再試。"]);
  r.cands.forEach((c,i)=>{const v=c.v,t=`方案 ${i+1}：線徑 ${f(oLen(c.d),3)} ${U.len}｜外徑 ${f(oLen(v.OD),2)} ${U.len}`;let rows;
   if(ty===0)rows=[["線徑 d",f(oLen(c.d),3)+" "+U.len],["中徑 D／旋繞比 C",`${f(oLen(c.D),2)} ${U.len}／${f(v.C,2)}`],["內徑 ID",f(oLen(v.ID),2)+" "+U.len],["有效圈數 Na／總圈數 Nt",`${f(c.na,2)}／${f(v.nt,2)}`],
    ["自由長 L0",f(oLen(v.L0),2)+" "+U.len],["壓並高度 Ls",f(oLen(v.ls),2)+" "+U.len],["彈簧常數 k",f(oRate(v.k),3)+" "+U.rate],["F1 @L1",f(oF(v.F1),2)+" "+U.force],["F2 @L2（實際）",f(oF(v.F2),2)+" "+U.force],["壓並力 Fs",f(oF(v.Fs),2)+" "+U.force],
@@ -500,12 +550,12 @@ function renderDesign(){
   else if(ty===1)rows=[["線徑 d",f(oLen(c.d),3)+" "+U.len],["中徑 D／旋繞比 C",`${f(oLen(c.D),2)} ${U.len}／${f(v.C,2)}`],["有效圈數 Na",f(c.na,2)],["本體長度 Lb",f(oLen(v.Lb),2)+" "+U.len],["自由長 L0（鉤內）",f(oLen(v.L0),2)+" "+U.len],
    ["彈簧常數 k",f(oRate(v.k),3)+" "+U.rate],["初張力 Fi",`${f(oF(v.Fi),2)} ${U.force}（建議 ${f(oF(v.FiLo),2)}～${f(oF(v.FiHi),2)}）`],["F2 @L2（實際）",f(oF(v.F2),2)+" "+U.force],
    ["本體剪應力",f(oS(v.tau),1)+" "+U.stress],sr("　判定 τ/Sut",v.rB,false),["鉤環彎曲應力",f(oS(v.hb),1)+" "+U.stress],sr("　判定 σ/Sut",v.rH,true),["鉤側彎扭轉應力",f(oS(v.ht),1)+" "+U.stress],sr("　判定 τ/Sut",v.rT,false),
-   [`預估壽命（取最短：${v.gov}）`,life(v.N,v.below,"無限壽命")]];
+   ["疲勞安全係數（取最小）",f(v.nf,2)],[`預估壽命（取最短：${v.gov}）`,life(v.N,v.below,"無限壽命")]];
   else rows=[["線徑 d",f(oLen(c.d),3)+" "+U.len],["中徑 D／旋繞比 C",`${f(oLen(c.D),2)} ${U.len}／${f(v.C,2)}`],["本體圈數 N／等效圈數 Na",`${f(c.na,2)}／${f(v.naEq,2)}`],["本體長度",f(oLen(v.body),2)+" "+U.len],
    ["扭力常數 k",f(oTq(v.k),3)+" "+U.tqr],["θ2 時扭矩（實際）",f(oTq(v.M2),2)+" "+U.tq],["　相當受力點負荷",f(oF(v.F2),2)+" "+U.force],["彎曲應力 σ",f(oS(v.sigma),1)+" "+U.stress],sr("強度判定 σ/Sut",v.ratio,true),
    ["扭緊後內徑",f(oLen(v.idW),2)+" "+U.len],["預估壽命",life(v.N,v.below,"無限壽命 (>10⁶ 次)")]];
   h+=card(t,rows,c.fails.map(x=>"不符："+x).concat(c.warns))});
- h+=`<div class="card small"><b>選型假設</b><br>・線徑取常用規格系列；中徑以 0.25 mm 掃描；圈數取 0.25 圈的倍數。<br>・壓縮：壓並力需 ≥ 1.15 × 工作力；旋繞比 4～12；剪應力 ≤ 0.65 Sut 才算合格（≤0.45 Sut 為優）。<br>・拉伸：自由長 = (Na+1)·d + 2×鉤內長度；初張力由 F1 反推，需落在建議範圍；鉤環 r1 = D/2、r2 = 2d。<br>・扭力：臂長計入等效圈數；扭緊後內徑需大於軸徑；彎曲應力 ≤ 0.78 Sut。<br>・結果是初步建議，請再到對應的計算頁輸入規格做完整驗算。</div>`;
+ h+=`<div class="card small"><b>設計假設</b><br>・線徑取常用規格系列；中徑以 0.25 mm 掃描；圈數取 0.25 圈的倍數。<br>・壓縮：壓並力需 ≥ 1.15 × 工作力；旋繞比 4～12；剪應力 ≤ 0.65 Sut 才算合格（≤0.45 Sut 為優）。<br>・拉伸：自由長 = (Na+1)·d + 2×鉤內長度；初張力由 F1 反推，需落在建議範圍；鉤環 r1 = D/2、r2 = 2d。<br>・扭力：臂長計入等效圈數；扭緊後內徑需大於軸徑；彎曲應力 ≤ 0.78 Sut。<br>・結果是初步建議，請再到對應的計算頁輸入規格做完整驗算。</div>`;
  o.innerHTML=h;
 }
 /* ---- 事件 ---- */

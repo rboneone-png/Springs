@@ -1,6 +1,7 @@
 package com.springs.calc
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SpringCalcTest {
@@ -76,21 +77,22 @@ class SpringCalcTest {
     @Test fun designCompression() {
         val r = SpringCalc.designCompression(SpringCalc.CompSpec(steel, EndType.CLOSED_GROUND, 30.0, 10.0, 0.0, 50.0, 10.0, 35.0, 60.0, false, 1e5, 0.05))
         val c = r.cands[0]
-        assertEquals(1.4, c.d, 1e-9); assertEquals(14.75, c.dm, 1e-9); assertEquals(3.5, c.na, 1e-9)
-        assertEquals(52.95, c.v["L0"]!!, 0.01); assertEquals(211, r.pass); assertEquals(634, r.total)
+        assertEquals(2.8, c.d, 1e-9); assertEquals(26.75, c.dm, 1e-9); assertEquals(9.5, c.na, 1e-9)
+        assertEquals(211, r.pass); assertEquals(634, r.total)
+        assertTrue(r.cands.zipWithNext().all { (a, b) -> a.v["N"]!! >= b.v["N"]!! })
     }
 
     @Test fun designExtension() {
         val r = SpringCalc.designExtension(SpringCalc.ExtSpec(steel, 25.0, 1.0, 60.0, 15.0, 80.0, 55.0, false, 1e5, 0.05))
         val c = r.cands[0]
-        assertEquals(1.2, c.d, 1e-9); assertEquals(6.5, c.dm, 1e-9); assertEquals(37.5, c.na, 1e-9)
-        assertEquals(13.40, c.v["Fi"]!!, 0.02); assertEquals(11, r.pass)
+        assertEquals(1.8, c.d, 1e-9); assertEquals(15.0, c.dm, 1e-9); assertEquals(15.5, c.na, 1e-9)
+        assertEquals(11, r.pass)
     }
 
     @Test fun designTorsion() {
         val r = SpringCalc.designTorsion(SpringCalc.TorSpec(steel, 30.0, 8.0, 30.0, 30.0, 30.0, 30.0, 0.0, 0.0, 90.0, 10.0, false, 1e5, 0.05))
         val c = r.cands[0]
-        assertEquals(1.4, c.d, 1e-9); assertEquals(18.75, c.dm, 1e-9); assertEquals(3.0, c.na, 1e-9)
-        assertEquals(3.4465, c.v["k"]!!, 0.001); assertEquals(229, r.pass)
+        assertEquals(2.0, c.d, 1e-9); assertEquals(28.0, c.dm, 1e-9); assertEquals(9.5, c.na, 1e-9)
+        assertEquals(229, r.pass)
     }
 }
