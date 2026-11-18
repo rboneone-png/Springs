@@ -30,6 +30,7 @@ private enum class Tab(val title: String, val icon: ImageVector) {
     COMP("壓縮", Icons.Default.UnfoldLess),
     TORS("扭力", Icons.Default.RotateRight),
     EXT("拉伸", Icons.Default.UnfoldMore),
+    DESIGN("選型", Icons.Default.Tune),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,7 +42,7 @@ private fun App() {
     var units by rememberSaveable { mutableStateOf(Units.METRIC) }
     Scaffold(
         topBar = { TopAppBar(
-            title = { Text("${tab.title}彈簧") },
+            title = { Text(if (tab == Tab.DESIGN) "規格選型" else "${tab.title}彈簧") },
             actions = {
                 Units.entries.forEach {
                     FilterChip(selected = units == it, onClick = { units = it },
@@ -65,6 +66,7 @@ private fun App() {
                     Tab.COMP -> CompressionScreen(units)
                     Tab.TORS -> TorsionScreen(units)
                     Tab.EXT -> ExtensionScreen(units)
+                    Tab.DESIGN -> DesignScreen(units)
                 }
             }
         }

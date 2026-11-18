@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.springs.calc.*
 import com.springs.calc.SpringCalc.Strength
 import com.springs.calc.SpringCalc.Verdict
+import androidx.compose.runtime.saveable.rememberSaveable
 
 private fun MutableState<String>.si(u: Units, k: Kind) = value.toDoubleOrNull()?.let { u.toSi(it, k) }!!
 
@@ -288,6 +289,135 @@ fun ExtensionScreen(u: Units) {
                 title = "L${i + 1} = ${f(lw, 2)} ${u.len}")
         }
     }
+}
+
+// ================= 規格選型 =================
+private fun strengthOf(x: Double, bending: Boolean) = Strength(x, if (bending)
+    when { x <= .65 -> Verdict.OK; x <= .78 -> Verdict.CAUTION; else -> Verdict.FAIL }
+else when { x <= .45 -> Verdict.OK; x <= .65 -> Verdict.CAUTION; else -> Verdict.FAIL })
+
+@Composable
+fun DesignScreen(u: Units) {
+    var type by rememberSaveable { mutableStateOf(0) }
+    var mat by remember { mutableStateOf(Material.all[0]) }
+    var end by remember { mutableStateOf(EndType.CLOSED_GROUND) }
+    var peened by remember { mutableStateOf(false) }
+    fun len(mm: String) = u.def(mm, Kind.LEN)
+    fun frc(n: String) = u.def(n, Kind.FORCE)
+    val odMax = remember { mutableStateOf(len("30")) }
+    val cId = remember { mutableStateOf(len("10")) }; val cL0 = remember { mutableStateOf("") }
+    val cL1 = remember { mutableStateOf(len("50")) }; val cF1 = remember { mutableStateOf(frc("10")) }
+    val cL2 = remember { mutableStateOf(len("35")) }; val cF2 = remember { mutableStateOf(frc("60")) }
+    val eL1 = remember { mutableStateOf(len("60")) }; val eF1 = remember { mutableStateOf(frc("15")) }
+    val eL2 = remember { mutableStateOf(len("80")) }; val eF2 = remember { mutableStateOf(frc("55")) }
+    val eHook = remember { mutableStateOf("1") }
+    val tShaft = remember { mutableStateOf(len("8")) }; val tLen = remember { mutableStateOf(len("30")) }
+    val tR = remember { mutableStateOf(len("30")) }; val tA1 = remember { mutableStateOf(len("30")) }; val tA2 = remember { mutableStateOf(len("30")) }
+    val tTh1 = remember { mutableStateOf("0") }; val tF1 = remember { mutableStateOf(frc("0")) }
+    val tTh2 = remember { mutableStateOf("90") }; val tF2 = remember { mutableStateOf(frc("10")) }
+    val nTargetS = remember { mutableStateOf("100000") }; val tolS = remember { mutableStateOf("5") }
+    UnitSync(u, listOf(odMax to Kind.LEN, cId to Kind.LEN, cL0 to Kind.LEN, cL1 to Kind.LEN, cF1 to Kind.FORCE, cL2 to Kind.LEN, cF2 to Kind.FORCE,
+        eL1 to Kind.LEN, eF1 to Kind.FORCE, eL2 to Kind.LEN, eF2 to Kind.FORCE, tShaft to Kind.LEN, tLen to Kind.LEN, tR to Kind.LEN,
+        tA1 to Kind.LEN, tA2 to Kind.LEN, tF1 to Kind.FORCE, tF2 to Kind.FORCE))
+    val types = listOf("壓縮彈簧", "拉伸彈簧", "扭力彈簧")
+    Text("依可用空間、彈簧型式、操作位置與力量，計算建議的彈簧規格。", style = MaterialTheme.typography.bodySmall)
+    Dropdown("彈簧型式", types.indices.toList(), type, { types[it] }) { type = it }
+    MaterialPicker(u, mat) { mat = it }
+    NumField("外徑上限（可用空間）", u.len, odMax)
+    fun v(s: MutableState<String>, k: Kind) = s.value.toDoubleOrNull()?.let { u.toSi(it, k) }
+    fun opt(s: MutableState<String>) = v(s, Kind.LEN)?.takeIf { it > 0 } ?: 0.0
+    when (type) {
+        0 -> {
+            Row2({ NumField("內徑下限／桿徑（空白＝不限）", u.len, cId) }, { NumField("自由長上限（空白＝不限）", u.len, cL0) })
+            Dropdown("端部型式", EndType.entries, end, { it.label }) { end = it }
+            Row2({ NumField("安裝長度 L1", u.len, cL1) }, { NumField("安裝時力量 F1", u.force, cF1) })
+            Row2({ NumField("工作最短長度 L2", u.len, cL2) }, { NumField("工作時力量 F2", u.force, cF2) })
+        }
+        1 -> {
+            Row2({ NumField("安裝長度 L1（兩鉤內側）", u.len, eL1) }, { NumField("安裝時力量 F1", u.force, eF1) })
+            Row2({ NumField("最大工作長度 L2", u.len, eL2) }, { NumField("L2 時力量 F2", u.force, eF2) })
+            NumField("每個鉤的內側長度（× 中徑）", "倍", eHook)
+        }
+        else -> {
+            Row2({ NumField("軸徑（空白＝不限）", u.len, tShaft) }, { NumField("軸向長度上限（空白＝不限）", u.len, tLen) })
+            Row2({ NumField("受力點半徑 R", u.len, tR) }, { NumField("臂長 L1", u.len, tA1) })
+            NumField("臂長 L2", u.len, tA2)
+            Row2({ NumField("安裝角度 θ1", "度", tTh1) }, { NumField("θ1 時力量", u.force, tF1) })
+            Row2({ NumField("工作角度 θ2", "度", tTh2) }, { NumField("θ2 時力量", u.force, tF2) })
+        }
+    }
+    Row2({ NumField("目標壽命（空白＝不要求）", "次", nTargetS) }, { NumField("力量容許誤差", "%", tolS) })
+    PeenedSwitch(peened) { peened = it }
+
+    val odV = v(odMax, Kind.LEN)
+    val tol = (tolS.value.toDoubleOrNull() ?: 5.0) / 100
+    val nT = nTargetS.value.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
+    var err: String? = null; var res: SpringCalc.DesignResult? = null
+    if (odV == null || odV <= 0) err = "請輸入外徑上限"
+    else when (type) {
+        0 -> {
+            val l1 = v(cL1, Kind.LEN); val f1 = v(cF1, Kind.FORCE); val l2 = v(cL2, Kind.LEN); val f2 = v(cF2, Kind.FORCE)
+            if (l1 == null || f1 == null || l2 == null || f2 == null) err = "請輸入完整的位置與力量"
+            else if (!(l1 > l2 && l2 > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：安裝長度 L1 > 工作長度 L2 > 0，且 F2 > F1 ≥ 0"
+            else res = SpringCalc.designCompression(SpringCalc.CompSpec(mat, end, odV, opt(cId), opt(cL0), l1, f1, l2, f2, peened, nT, tol))
+        }
+        1 -> {
+            val l1 = v(eL1, Kind.LEN); val f1 = v(eF1, Kind.FORCE); val l2 = v(eL2, Kind.LEN); val f2 = v(eF2, Kind.FORCE)
+            val hf = eHook.value.toDoubleOrNull()?.takeIf { it > 0 } ?: 1.0
+            if (l1 == null || f1 == null || l2 == null || f2 == null) err = "請輸入完整的位置與力量"
+            else if (!(l2 > l1 && l1 > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：最大工作長度 L2 > 安裝長度 L1 > 0，且 F2 > F1 ≥ 0"
+            else res = SpringCalc.designExtension(SpringCalc.ExtSpec(mat, odV, hf, l1, f1, l2, f2, peened, nT, tol))
+        }
+        else -> {
+            val r = v(tR, Kind.LEN); val a1 = v(tA1, Kind.LEN); val a2 = v(tA2, Kind.LEN); val f1 = v(tF1, Kind.FORCE); val f2 = v(tF2, Kind.FORCE)
+            val th1 = tTh1.value.toDoubleOrNull(); val th2 = tTh2.value.toDoubleOrNull()
+            if (r == null || a1 == null || a2 == null || f1 == null || f2 == null || th1 == null || th2 == null) err = "請輸入完整的角度、力量與臂長"
+            else if (!(th2 > th1 && r > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：θ2 > θ1，R > 0，且 F2 > F1 ≥ 0"
+            else res = SpringCalc.designTorsion(SpringCalc.TorSpec(mat, odV, opt(tShaft), opt(tLen), r, a1, a2, th1, f1, th2, f2, peened, nT, tol))
+        }
+    }
+    if (err != null) { ResultCard(emptyList(), listOf(err), title = "請檢查輸入"); return }
+    val r = res ?: return
+    val kTxt = if (type == 2) "${f(u.torqueOut(r.kreq), 3)} ${u.torqueRate}" else "${f(u.rateOut(r.kreq), 3)} ${u.rate}"
+    ResultCard(listOf("所需彈簧常數 k" to kTxt, "評估組合數" to "${r.total}", "完全符合條件的組合數" to "${r.pass}"),
+        listOf(if (r.ok) "以下依「應力等級優先、再以線材用量最少」排序，每種線徑只列最佳一組。"
+        else "找不到完全符合全部條件的規格，以下為最接近的方案，各卡片已標出不符項目。可放寬空間、力量誤差或目標壽命後再試。"),
+        title = "選型結果摘要")
+    r.cands.forEachIndexed { i, c ->
+        val x = c.v; fun g(k: String) = x[k] ?: 0.0
+        val title = "方案 ${i + 1}：線徑 ${f(u.lenOut(c.d), 3)} ${u.len}｜外徑 ${f(u.lenOut(g("OD")), 2)} ${u.len}"
+        val rows: List<Pair<String, String>> = when (type) {
+            0 -> listOf("線徑 d" to "${f(u.lenOut(c.d), 3)} ${u.len}",
+                "中徑 D／旋繞比 C" to "${f(u.lenOut(c.dm), 2)} ${u.len}／${f(g("C"), 2)}", "內徑 ID" to "${f(u.lenOut(g("ID")), 2)} ${u.len}",
+                "有效圈數 Na／總圈數 Nt" to "${f(c.na, 2)}／${f(g("nt"), 2)}", "自由長 L0" to "${f(u.lenOut(g("L0")), 2)} ${u.len}",
+                "壓並高度 Ls" to "${f(u.lenOut(g("ls")), 2)} ${u.len}", "彈簧常數 k" to "${f(u.rateOut(g("k")), 3)} ${u.rate}",
+                "F1 @L1" to "${f(u.forceOut(g("F1")), 2)} ${u.force}", "F2 @L2（實際）" to "${f(u.forceOut(g("F2")), 2)} ${u.force}",
+                "壓並力 Fs" to "${f(u.forceOut(g("Fs")), 2)} ${u.force}", "工作剪應力 τ" to "${f(u.stressOut(g("tau2")), 1)} ${u.stress}",
+                sRow("強度判定 τ/Sut", strengthOf(g("ratio"), false)), "疲勞安全係數" to sf(g("nf")),
+                "預估壽命" to lifeText(g("N"), g("below") > 0, "無限壽命 (>10⁷ 次)"))
+            1 -> listOf("線徑 d" to "${f(u.lenOut(c.d), 3)} ${u.len}",
+                "中徑 D／旋繞比 C" to "${f(u.lenOut(c.dm), 2)} ${u.len}／${f(g("C"), 2)}", "有效圈數 Na" to f(c.na, 2),
+                "本體長度 Lb" to "${f(u.lenOut(g("Lb")), 2)} ${u.len}", "自由長 L0（鉤內）" to "${f(u.lenOut(g("L0")), 2)} ${u.len}",
+                "彈簧常數 k" to "${f(u.rateOut(g("k")), 3)} ${u.rate}",
+                "初張力 Fi" to "${f(u.forceOut(g("Fi")), 2)} ${u.force}（建議 ${f(u.forceOut(g("FiLo")), 2)}～${f(u.forceOut(g("FiHi")), 2)}）",
+                "F2 @L2（實際）" to "${f(u.forceOut(g("F2")), 2)} ${u.force}",
+                "本體剪應力" to "${f(u.stressOut(g("tau")), 1)} ${u.stress}", sRow("　判定 τ/Sut", strengthOf(g("rB"), false)),
+                "鉤環彎曲應力" to "${f(u.stressOut(g("hb")), 1)} ${u.stress}", sRow("　判定 σ/Sut", strengthOf(g("rH"), true)),
+                "鉤側彎扭轉應力" to "${f(u.stressOut(g("ht")), 1)} ${u.stress}", sRow("　判定 τ/Sut", strengthOf(g("rT"), false)),
+                "預估壽命（取最短：${c.tag}）" to lifeText(g("N"), g("below") > 0, "無限壽命"))
+            else -> listOf("線徑 d" to "${f(u.lenOut(c.d), 3)} ${u.len}",
+                "中徑 D／旋繞比 C" to "${f(u.lenOut(c.dm), 2)} ${u.len}／${f(g("C"), 2)}",
+                "本體圈數 N／等效圈數 Na" to "${f(c.na, 2)}／${f(g("naEq"), 2)}", "本體長度" to "${f(u.lenOut(g("body")), 2)} ${u.len}",
+                "扭力常數 k" to "${f(u.torqueOut(g("k")), 3)} ${u.torqueRate}", "θ2 時扭矩（實際）" to "${f(u.torqueOut(g("M2")), 2)} ${u.torque}",
+                "　相當受力點負荷" to "${f(u.forceOut(g("F2")), 2)} ${u.force}", "彎曲應力 σ" to "${f(u.stressOut(g("sigma")), 1)} ${u.stress}",
+                sRow("強度判定 σ/Sut", strengthOf(g("ratio"), true)), "扭緊後內徑" to "${f(u.lenOut(g("idW")), 2)} ${u.len}",
+                "預估壽命" to lifeText(g("N"), g("below") > 0, "無限壽命 (>10⁶ 次)"))
+        }
+        ResultCard(rows, c.fails.map { "不符：$it" } + c.warns, title = title)
+    }
+    Text("選型假設：線徑取常用規格系列，中徑以 0.25 mm 掃描，圈數取 0.25 圈的倍數。壓縮：壓並力需 ≥ 1.15×工作力、旋繞比 4～12、剪應力 ≤ 0.65Sut；" +
+        "拉伸：自由長 = (Na+1)·d + 2×鉤內長度，初張力由 F1 反推且需在建議範圍，鉤環 r1 = D/2、r2 = 2d；扭力：臂長計入等效圈數，扭緊後內徑需大於軸徑、彎曲應力 ≤ 0.78Sut。" +
+        "結果為初步建議，請到對應計算頁做完整驗算。", style = MaterialTheme.typography.bodySmall)
 }
 
 /** 兩位有效數字的循環次數，如 5.3×10⁵ */

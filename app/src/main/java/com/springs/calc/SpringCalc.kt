@@ -215,6 +215,144 @@ object SpringCalc {
         return AllowLoad(fb, fhb, fht, g.second, g.first, l0 + ((g.second - fi) / k).coerceAtLeast(0.0))
     }
 
+    // ---------- 規格選型 ----------
+    val STD_D = doubleArrayOf(.2, .25, .3, .35, .4, .45, .5, .55, .6, .7, .8, .9, 1.0, 1.1, 1.2, 1.4, 1.5, 1.6, 1.8, 2.0, 2.2, 2.5, 2.8,
+        3.0, 3.2, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0)
+
+    data class DesignCand(
+        val d: Double, val dm: Double, val na: Double, val fails: List<String>, val warns: List<String>,
+        val level: Int, val weight: Double, val v: Map<String, Double>, val tag: String = "",
+    )
+    data class DesignResult(val kreq: Double, val cands: List<DesignCand>, val pass: Int, val total: Int) { val ok get() = pass > 0 }
+
+    private fun roundTo(x: Double, s: Double) = Math.round(x / s) * s
+
+    private fun pickDesign(kreq: Double, out: List<DesignCand>): DesignResult {
+        val pass = out.filter { it.fails.isEmpty() }
+        val src = if (pass.isNotEmpty()) pass.sortedBy { it.level * 1e12 + it.weight }
+        else out.sortedWith(compareBy({ it.fails.size }, { it.weight }))
+        val seen = HashSet<Double>(); val list = ArrayList<DesignCand>()
+        for (c in src) { if (!seen.add(c.d)) continue; list.add(c); if (list.size >= 6) break }
+        return DesignResult(kreq, list, pass.size, out.size)
+    }
+
+    data class CompSpec(val mat: Material, val end: EndType, val odMax: Double, val idMin: Double, val l0Max: Double,
+                        val l1: Double, val f1: Double, val l2: Double, val f2: Double, val peen: Boolean, val nTarget: Double, val tol: Double)
+
+    fun designCompression(sp: CompSpec): DesignResult {
+        val m = sp.mat; val kreq = (sp.f2 - sp.f1) / (sp.l1 - sp.l2); val out = ArrayList<DesignCand>()
+        for (d in STD_D) {
+            val sut = m.sut(d)
+            val dLo = maxOf(sp.idMin + d, 4 * d); val dHi = minOf(sp.odMax - d, 12 * d)
+            var dm = Math.ceil(dLo * 4 - 1e-9) / 4
+            while (dm <= dHi + 1e-9) {
+                val na = roundTo(m.g * d.pow(4) / (8 * dm.pow(3) * kreq), .25)
+                if (na >= 2) {
+                    val k = rate(m.g, d, dm, na); val l0 = sp.l1 + sp.f1 / k; val f2 = sp.f1 + k * (sp.l1 - sp.l2)
+                    val ls = sp.end.solidLength(na, d); val fs = k * (l0 - ls)
+                    val t2 = shear(f2, dm, d); val t1 = shear(sp.f1, dm, d)
+                    val st = strengthShear(t2, sut); val ft = fatigue(t2, t1, d, m, sp.peen); val err = Math.abs(f2 / sp.f2 - 1)
+                    val fails = ArrayList<String>(); val warns = ArrayList<String>()
+                    if (err > sp.tol) fails.add("力量誤差 ${"%.1f".format(err * 100)}% 超過容許 ${"%.0f".format(sp.tol * 100)}%")
+                    if (sp.l0Max > 0 && l0 > sp.l0Max) fails.add("自由長超過空間上限")
+                    if (fs < 1.15 * f2) fails.add("壓並力不足（需 ≥ 1.15×工作力）")
+                    if (st.verdict == Verdict.FAIL) fails.add("剪應力超過 0.65Sut")
+                    else if (st.verdict == Verdict.CAUTION) warns.add("剪應力 >0.45Sut，需預壓除應力")
+                    if (sp.nTarget > 0 && ft.cycles < sp.nTarget) fails.add("預估壽命低於目標")
+                    if (l0 / dm > 4) warns.add("自由長/中徑 >4，建議加導桿")
+                    if (!m.steel) warns.add("疲勞係數以鋼線為基礎，僅供參考")
+                    out.add(DesignCand(d, dm, na, fails, warns, st.verdict.ordinal, PI * d * d / 4 * PI * dm * sp.end.totalCoils(na),
+                        mapOf("OD" to dm + d, "ID" to dm - d, "nt" to sp.end.totalCoils(na), "L0" to l0, "ls" to ls, "k" to k, "F1" to sp.f1,
+                            "F2" to f2, "Fs" to fs, "tau2" to t2, "ratio" to st.ratio, "sut" to sut, "nf" to ft.fatigueSf,
+                            "N" to ft.cycles, "below" to (if (ft.belowThousand) 1.0 else 0.0), "C" to dm / d)))
+                }
+                dm += .25
+            }
+        }
+        return pickDesign(kreq, out)
+    }
+
+    data class ExtSpec(val mat: Material, val odMax: Double, val hookF: Double, val l1: Double, val f1: Double, val l2: Double,
+                       val f2: Double, val peen: Boolean, val nTarget: Double, val tol: Double)
+
+    fun designExtension(sp: ExtSpec): DesignResult {
+        val m = sp.mat; val kreq = (sp.f2 - sp.f1) / (sp.l2 - sp.l1); val out = ArrayList<DesignCand>()
+        for (d in STD_D) {
+            val sut = m.sut(d)
+            val dLo = 4 * d; val dHi = minOf(sp.odMax - d, 12 * d)
+            var dm = Math.ceil(dLo * 4 - 1e-9) / 4
+            while (dm <= dHi + 1e-9) {
+                val na = roundTo(m.g * d.pow(4) / (8 * dm.pow(3) * kreq), .25)
+                if (na >= 3) {
+                    val k = rate(m.g, d, dm, na); val l0 = (na + 1) * d + 2 * sp.hookF * dm
+                    val fi = sp.f1 - k * (sp.l1 - l0); val f2 = sp.f1 + k * (sp.l2 - sp.l1); val it = initialTension(d, dm)
+                    val r1 = dm / 2; val r2 = 2 * d
+                    val tb = shear(f2, dm, d); val hb = hookBending(f2, d, dm, r1); val ht = hookTorsion(f2, d, dm, r2)
+                    val sB = strengthShear(tb, sut); val sH = strengthBending(hb, sut); val sT = strengthShear(ht, sut)
+                    val lv = maxOf(sB.verdict.ordinal, sH.verdict.ordinal, sT.verdict.ordinal)
+                    val ef = if (fi > 0 && l0 <= sp.l1) extensionFatigue(d, dm, k, l0, sp.l2, sp.l1, fi, r1, r2, m, sp.peen) else null
+                    val err = Math.abs(f2 / sp.f2 - 1)
+                    val fails = ArrayList<String>(); val warns = ArrayList<String>()
+                    if (l0 > sp.l1) fails.add("自由長大於安裝長度（無法裝入）")
+                    if (fi <= 0) fails.add("所需初張力為負值（F1 過小）")
+                    else if (fi < it.fiLo * .85 || fi > it.fiHi * 1.15) fails.add("初張力偏離建議範圍過多")
+                    else if (fi < it.fiLo || fi > it.fiHi) warns.add("初張力略超出建議範圍")
+                    if (err > sp.tol) fails.add("力量誤差 ${"%.1f".format(err * 100)}% 超過容許 ${"%.0f".format(sp.tol * 100)}%")
+                    if (lv == 2) fails.add("應力超過材質安全範圍") else if (lv == 1) warns.add("部分應力需預壓除應力")
+                    val life = ef?.cycles ?: 0.0
+                    if (sp.nTarget > 0 && life < sp.nTarget) fails.add("預估壽命低於目標")
+                    if (!m.steel) warns.add("疲勞係數以鋼線為基礎，僅供參考")
+                    out.add(DesignCand(d, dm, na, fails, warns, lv, PI * d * d / 4 * PI * dm * (na + 3),
+                        mapOf("OD" to dm + d, "Lb" to (na + 1) * d, "L0" to l0, "k" to k, "Fi" to fi, "FiLo" to it.fiLo, "FiHi" to it.fiHi,
+                            "F1" to sp.f1, "F2" to f2, "tau" to tb, "hb" to hb, "ht" to ht, "rB" to sB.ratio, "rH" to sH.ratio, "rT" to sT.ratio,
+                            "N" to life, "below" to (if (ef?.belowThousand ?: true) 1.0 else 0.0),
+                            "Nbody" to (ef?.body?.cycles ?: 0.0), "Nhb" to (ef?.hookBend?.cycles ?: 0.0), "Nht" to (ef?.hookTors?.cycles ?: 0.0),
+                            "C" to dm / d), tag = ef?.governing ?: "-"))
+                }
+                dm += .25
+            }
+        }
+        return pickDesign(kreq, out)
+    }
+
+    data class TorSpec(val mat: Material, val odMax: Double, val shaftD: Double, val lenMax: Double, val armR: Double, val l1: Double, val l2: Double,
+                       val th1: Double, val f1: Double, val th2: Double, val f2: Double, val peen: Boolean, val nTarget: Double, val tol: Double)
+
+    fun designTorsion(sp: TorSpec): DesignResult {
+        val m = sp.mat; val m1 = sp.f1 * sp.armR; val m2 = sp.f2 * sp.armR
+        val kreq = (m2 - m1) / (sp.th2 - sp.th1); val arms = sp.l1 + sp.l2; val out = ArrayList<DesignCand>()
+        for (d in STD_D) {
+            val sut = m.sut(d)
+            val dLo = maxOf(sp.shaftD + d, 4 * d); val dHi = minOf(sp.odMax - d, 14 * d)
+            var dm = Math.ceil(dLo * 4 - 1e-9) / 4
+            while (dm <= dHi + 1e-9) {
+                val nb = roundTo(m.e * d.pow(4) / (3667 * dm * kreq) - arms / (3 * PI * dm), .25)
+                if (nb >= 2) {
+                    val na = nb + arms / (3 * PI * dm); val k = m.e * d.pow(4) / (3667 * dm * na)
+                    val m2a = m1 + k * (sp.th2 - sp.th1); val th0 = sp.th1 - m1 / k; val thTot = sp.th2 - th0
+                    val c = dm / d; val ki = (4 * c * c - c - 1) / (4 * c * (c - 1))
+                    val s2 = ki * 32 * m2a / (PI * d.pow(3)); val s1 = ki * 32 * m1 / (PI * d.pow(3))
+                    val st = strengthBending(s2, sut); val ft = fatigueBending(s2, s1, d, m, sp.peen)
+                    val idW = dm * nb / (nb + thTot / 360) - d; val body = (nb + 1) * d; val err = Math.abs(m2a / m2 - 1)
+                    val fails = ArrayList<String>(); val warns = ArrayList<String>()
+                    if (err > sp.tol) fails.add("扭矩誤差 ${"%.1f".format(err * 100)}% 超過容許 ${"%.0f".format(sp.tol * 100)}%")
+                    if (sp.lenMax > 0 && body > sp.lenMax) fails.add("本體長度超過軸向空間上限")
+                    if (sp.shaftD > 0 && idW < sp.shaftD * 1.02) fails.add("扭緊後內徑小於軸徑（會抱死）")
+                    if (st.verdict == Verdict.FAIL) fails.add("彎曲應力超過 0.78Sut")
+                    else if (st.verdict == Verdict.CAUTION) warns.add("彎曲應力 >0.65Sut，需除應力")
+                    if (sp.nTarget > 0 && ft.cycles < sp.nTarget) fails.add("預估壽命低於目標")
+                    if (!m.steel) warns.add("疲勞係數以鋼線為基礎，僅供參考")
+                    out.add(DesignCand(d, dm, nb, fails, warns, st.verdict.ordinal, PI * d * d / 4 * PI * dm * nb,
+                        mapOf("OD" to dm + d, "idW" to idW, "nb" to nb, "naEq" to na, "body" to body, "k" to k, "M1" to m1, "M2" to m2a,
+                            "F2" to m2a / sp.armR, "sigma" to s2, "ratio" to st.ratio, "thTot" to thTot, "N" to ft.cycles,
+                            "below" to (if (ft.belowThousand) 1.0 else 0.0), "C" to c)))
+                }
+                dm += .25
+            }
+        }
+        return pickDesign(kreq, out)
+    }
+
     // ---------- 拉伸 ----------
     data class Extension(
         val dm: Double, val c: Double, val k: Double, val bodyLength: Double,
