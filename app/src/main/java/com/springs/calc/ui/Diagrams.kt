@@ -299,8 +299,10 @@ private fun DrawScope.dzTor(tm: TextMeasurer, p: Pal) {
     fun o(x: Float, y: Float) = Offset(x * k, y * k)
     val cx = 150f; val cy = 200f; val rm = 59f; val wr = 9f * k
     val pi = Math.PI.toFloat(); val a2 = 60f * pi / 180f; val lf = 125f; val lm = 110f
-    fun sx(a: Float) = cx + rm * cos(a); fun sy(a: Float) = cy - rm * sin(a)
-    fun drx(a: Float) = -sin(a); fun dry(a: Float) = -cos(a)
+    fun sx(a: Float) = cx + rm * cos(a)
+    fun sy(a: Float) = cy - rm * sin(a)
+    fun drx(a: Float) = -sin(a)
+    fun dry(a: Float) = -cos(a)
     val dash = PathEffect.dashPathEffect(floatArrayOf(7f * k, 5f * k))
     fun arm(a: Float, len: Float, dashed: Boolean) {
         val x = sx(a); val y = sy(a)
