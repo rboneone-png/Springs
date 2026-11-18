@@ -338,6 +338,7 @@ fun DesignScreen(u: Units) {
             Row2({ NumField("安裝長度 L1（兩鉤內側）", u.len, eL1) }, { NumField("安裝時力量 F1", u.force, eF1) })
             Row2({ NumField("最大工作長度 L2", u.len, eL2) }, { NumField("L2 時力量 F2", u.force, eF2) })
             NumField("每個鉤的內側長度（× 中徑）", "倍", eHook)
+            Text("鉤長係數：每個鉤占的長度 = 係數 × 彈簧中徑。自由長 L0（兩鉤內側）= (有效圈數 + 1) × 線徑 + 2 × 係數 × 中徑。一般圓環鉤用 1；長開口鉤可調大（如 1.5）、短鉤可調小（如 0.7），實際以鉤型圖面為準。", style = MaterialTheme.typography.bodySmall)
         }
         else -> {
             Row2({ NumField("軸徑（空白＝不限）", u.len, tShaft) }, { NumField("軸向長度上限（空白＝不限）", u.len, tLen) })
