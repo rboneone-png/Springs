@@ -40,10 +40,14 @@ private fun App() {
     val scope = rememberCoroutineScope()
     val tab = Tab.entries[pagerState.currentPage]
     var units by rememberSaveable { mutableStateOf(Units.METRIC) }
+    var showManual by rememberSaveable { mutableStateOf(false) }
+    // 說明書以覆蓋層顯示，關閉後回到原畫面，已輸入的數值不會消失
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         topBar = { TopAppBar(
             title = { Text(if (tab == Tab.DESIGN) "規格設計" else "${tab.title}彈簧") },
             actions = {
+                TextButton(onClick = { showManual = true }) { Text("說明") }
                 Units.entries.forEach {
                     FilterChip(selected = units == it, onClick = { units = it },
                         label = { Text(it.label) }, modifier = Modifier.padding(end = 8.dp))
@@ -58,8 +62,8 @@ private fun App() {
             }
         },
     ) { pad ->
-        // 左右滑動切換；beyondViewportPageCount 讓三頁都保留，輸入內容不會因切換而消失
-        HorizontalPager(pagerState, Modifier.padding(pad).fillMaxSize(), beyondViewportPageCount = 2) { page ->
+        // 左右滑動切換；beyondViewportPageCount 讓所有分頁都保留，輸入內容不會因切換而消失
+        HorizontalPager(pagerState, Modifier.padding(pad).fillMaxSize(), beyondViewportPageCount = Tab.entries.size - 1) { page ->
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (Tab.entries[page]) {
@@ -70,5 +74,7 @@ private fun App() {
                 }
             }
         }
+    }
+    if (showManual) ManualScreen { showManual = false }
     }
 }

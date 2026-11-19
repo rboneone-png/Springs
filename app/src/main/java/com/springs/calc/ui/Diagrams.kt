@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -35,8 +36,8 @@ import kotlin.math.sin
 private class Pal(val line: Color, val dim: Color, val text: Color)
 
 @Composable
-private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, aspect: Float? = null, controls: @Composable () -> Unit = {}, draw: DrawScope.(TextMeasurer, Pal) -> Unit) {
-    var open by rememberSaveable { mutableStateOf(false) }
+private fun DiagramCard(title: String, legend: List<String>, heightDp: Int, aspect: Float? = null, startOpen: Boolean = false, controls: @Composable () -> Unit = {}, draw: DrawScope.(TextMeasurer, Pal) -> Unit) {
+    var open by rememberSaveable { mutableStateOf(startOpen) }
     val tm = rememberTextMeasurer()
     val pal = Pal(MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onSurface)
     Card(Modifier.fillMaxWidth()) {
@@ -90,12 +91,12 @@ private fun DrawScope.wireSection(tm: TextMeasurer, p: Pal, c: Offset) {
 
 // ---------- 壓縮彈簧 ----------
 @Composable
-fun CompressionDiagram() = DiagramCard(
+fun CompressionDiagram(startOpen: Boolean = false) = DiagramCard(
     "參數位置圖", listOf(
         "d 線徑｜OD 外徑｜D 中徑 = OD − d",
         "L0 自由長（未受力）｜L 工作長度（受壓後）",
         "Na 有效圈數（不含兩端閉合圈）",
-    ), 290,
+    ), 290, startOpen = startOpen,
 ) { tm, p ->
     val w = size.width; val h = size.height; val wire = 5.dp.toPx()
     val cx = w * 0.40f; val half = w * 0.17f; val top = h * 0.28f; val bot = h * 0.78f
@@ -130,12 +131,12 @@ fun CompressionDiagram() = DiagramCard(
 
 // ---------- 扭力彈簧 ----------
 @Composable
-fun TorsionDiagram() = DiagramCard(
+fun TorsionDiagram(startOpen: Boolean = false) = DiagramCard(
     "參數位置圖（俯視）", listOf(
         "d 線徑｜OD 外徑｜D 中徑 = OD − d｜N 本體圈數",
         "L1、L2 兩支臂長（由本體切點量到臂端）",
         "θ 扭轉角｜R 受力點半徑（由彈簧中心到負荷點，F 垂直於臂）",
-    ), 330,
+    ), 330, startOpen = startOpen,
 ) { tm, p ->
     val w = size.width; val h = size.height
     val cx = w * 0.34f; val cy = h * 0.50f; val r = h * 0.22f; val wire = h * 0.04f; val rm = r - wire / 2
@@ -172,13 +173,13 @@ fun TorsionDiagram() = DiagramCard(
 
 // ---------- 拉伸彈簧（仿實物照片：左圓環鉤、右長開口鉤）----------
 @Composable
-fun ExtensionDiagram() = DiagramCard(
+fun ExtensionDiagram(startOpen: Boolean = false) = DiagramCard(
     "參數位置圖", listOf(
         "d 線徑｜OD 外徑｜D 中徑 = OD − d｜Na 有效圈數",
         "L0 自由長（兩鉤內側距離）｜L 工作長度｜Lb 本體長 = (Na+1)d",
         "r1 鉤環中心半徑｜r2 鉤側彎半徑（鉤環與本體之間的彎折處）｜Fi 初張力",
         "圖左為圓環鉤、圖右為長開口鉤；其他鉤型的 r2 同樣是鉤與本體交接的彎折半徑，r1 為鉤的中心半徑。L（工作長度）與 L0 量法相同，為受拉後兩鉤內側的距離",
-    ), 0, aspect = 360f / 372f,
+    ), 0, aspect = 360f / 372f, startOpen = startOpen,
 ) { tm, p ->
     val k = size.width / 360f
     fun o(x: Float, y: Float) = Offset(x * k, y * k)
@@ -239,9 +240,9 @@ private val DZ_LEG = listOf(
 )
 
 @Composable
-fun DesignDiagram(type: Int) = DiagramCard(
+fun DesignDiagram(type: Int, startOpen: Boolean = false) = DiagramCard(
     "示意圖", DZ_LEG[type.coerceIn(0, 2)], 0,
-    aspect = when (type) { 0 -> 360f / 360f; 1 -> 360f / 400f; else -> 360f / 400f },
+    aspect = when (type) { 0 -> 360f / 360f; 1 -> 360f / 400f; else -> 360f / 400f }, startOpen = startOpen,
 ) { tm, p -> when (type) { 0 -> dzComp(tm, p); 1 -> dzExt(tm, p); else -> dzTor(tm, p) } }
 
 private fun DrawScope.dzComp(tm: TextMeasurer, p: Pal) {
@@ -331,4 +332,85 @@ private fun DrawScope.dzTor(tm: TextMeasurer, p: Pal) {
     guide(o(cx, cy), o(f1x, f1y), p.dim); txt(tm, "R", o((cx + f1x) / 2 + 12, (cy + f1y) / 2), p.dim)
     txt(tm, "L2", o(sx(a1) + drx(a1) * lm, sy(a1) + dry(a1) * lm + 14), p.dim)
     txt(tm, "θ1 位置（實線）", o(cx - 70, cy + 160), p.dim); txt(tm, "θ2 位置（虛線）", o(cx + 70, cy + 160), p.dim)
+}
+
+// ---------- 說明書：畫面導覽線框圖 ----------
+private data class WfEl(val n: Int, val x: Float, val y: Float, val w: Float, val h: Float, val t: String, val kind: String)
+private val WF_ELS = listOf(
+    WfEl(1, 70f, 18f, 64f, 26f, "壓縮彈簧", "box"),
+    WfEl(2, 142f, 18f, 44f, 26f, "說明", "box"),
+    WfEl(3, 196f, 18f, 96f, 26f, "公制 | 英制", "box"),
+    WfEl(4, 70f, 52f, 222f, 64f, "參數位置圖 ▾", "diag"),
+    WfEl(5, 70f, 124f, 222f, 26f, "材質：琴鋼線 ▾", "box"),
+    WfEl(6, 70f, 158f, 108f, 26f, "線徑 d (mm)", "box"),
+    WfEl(0, 184f, 158f, 108f, 26f, "外徑 OD (mm)", "box"),
+    WfEl(0, 70f, 188f, 108f, 26f, "有效圈數 Na", "box"),
+    WfEl(0, 184f, 188f, 108f, 26f, "自由長 L0 (mm)", "box"),
+    WfEl(7, 70f, 222f, 140f, 24f, "＋ 新增工作長度", "btn"),
+    WfEl(8, 70f, 254f, 222f, 22f, "○ 珠擊處理 (Shot peened)", "switch"),
+    WfEl(9, 70f, 284f, 222f, 134f, "RESULT", "result"),
+    WfEl(10, 66f, 432f, 230f, 36f, "NAV", "nav"),
+)
+
+private fun DrawScope.txtS(tm: TextMeasurer, s: String, at: Offset, c: Color, size: Float, bold: Boolean = false, left: Boolean = false, right: Boolean = false) {
+    val st = TextStyle(color = c, fontSize = size.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
+    val sz = tm.measure(s, st).size
+    val x = when { left -> at.x; right -> at.x - sz.width; else -> at.x - sz.width / 2f }
+    drawText(tm, s, Offset(x, at.y - sz.height / 2f), st)
+}
+
+@Composable
+fun WireframeFigure() {
+    val tm = rememberTextMeasurer()
+    val fg = MaterialTheme.colorScheme.onSurface; val pri = MaterialTheme.colorScheme.primary
+    val onPri = MaterialTheme.colorScheme.onPrimary; val err = MaterialTheme.colorScheme.error
+    val soft = fg.copy(alpha = 0.3f)
+    Canvas(Modifier.fillMaxWidth().aspectRatio(360f / 490f)) {
+        val k = size.width / 360f
+        fun o(x: Float, y: Float) = Offset(x * k, y * k)
+        fun rr(x: Float, y: Float, w: Float, h: Float, r: Float, c: Color) =
+            drawRoundRect(c, o(x, y), Size(w * k, h * k), CornerRadius(r * k), style = Stroke(1.dp.toPx()))
+        drawRoundRect(fg, o(60f, 8f), Size(242f * k, 468f * k), CornerRadius(18f * k), style = Stroke(2.dp.toPx()))
+        for (e in WF_ELS) {
+            val cx = e.x + e.w / 2; val cy = e.y + e.h / 2
+            when (e.kind) {
+                "box" -> { rr(e.x, e.y, e.w, e.h, 6f, soft); txtS(tm, e.t, o(cx, cy), fg, 11f) }
+                "diag" -> {
+                    rr(e.x, e.y, e.w, e.h, 6f, soft)
+                    val path = Path()
+                    for (i in 0..6) { val px = e.x + 40 + (if (i % 2 == 1) 14 else -14); val py = e.y + 10 + i * 7.5f
+                        if (i == 0) path.moveTo(px * k, py * k) else path.lineTo(px * k, py * k) }
+                    drawPath(path, fg, style = Stroke(2f * k))
+                    txtS(tm, e.t, o(cx + 24, cy), fg, 11f)
+                }
+                "btn" -> { rr(e.x, e.y, e.w, e.h, 8f, pri); txtS(tm, e.t, o(cx, cy), fg, 11f) }
+                "switch" -> {
+                    drawRoundRect(soft, o(e.x, e.y + 3), Size(26f * k, 14f * k), CornerRadius(7f * k))
+                    drawCircle(Color.White, 6f * k, o(e.x + 8, e.y + 10))
+                    txtS(tm, "珠擊處理 (Shot peened)", o(e.x + 34, e.y + 10), fg, 11f, left = true)
+                }
+                "result" -> {
+                    rr(e.x, e.y, e.w, e.h, 8f, soft)
+                    txtS(tm, "L1 = 40.00 mm", o(e.x + 10, e.y + 16), fg, 12f, bold = true, left = true)
+                    listOf("工作負荷 F" to "144.50 N", "工作剪應力 τmax" to "781.0 MPa", "強度判定 τ/Sut" to "0.39 ✔ 合格",
+                        "疲勞安全係數 (10⁷)" to "0.65", "預估壽命" to "約 5.3×10⁵ 次").forEachIndexed { i, r ->
+                        txtS(tm, r.first, o(e.x + 10, e.y + 36 + i * 16), fg, 11f, left = true)
+                        txtS(tm, r.second, o(e.x + e.w - 10, e.y + 36 + i * 16), fg, 11f, bold = true, right = true)
+                    }
+                    txtS(tm, "⚠ 自由長/中徑 >4，建議加導桿", o(e.x + 10, e.y + e.h - 10), err, 10.5f, left = true)
+                }
+                "nav" -> {
+                    rr(e.x, e.y, e.w, e.h, 8f, soft)
+                    listOf("壓縮", "扭力", "拉伸", "設計").forEachIndexed { i, t ->
+                        txtS(tm, t, o(e.x + e.w / 8 + i * e.w / 4, cy), if (i == 0) pri else fg, 11.5f, bold = i == 0)
+                    }
+                    drawRect(pri, o(e.x + 4, e.y), Size((e.w / 4 - 8) * k, 3f * k))
+                }
+            }
+        }
+        for (e in WF_ELS) if (e.n > 0) {
+            drawCircle(pri, 9f * k, o(e.x, e.y))
+            txtS(tm, "${e.n}", o(e.x, e.y), onPri, 11f, bold = true)
+        }
+    }
 }
