@@ -44,6 +44,8 @@ jobs:
           echo "ver=$ver" >> "$GITHUB_OUTPUT"
           echo "pre=false" >> "$GITHUB_OUTPUT"
           echo "版本：$ver"
+      - name: Sync drawing engine into app assets
+        run: python3 tools/sync_drawing.py
       - run: gradle -PappVersion=${{ steps.v.outputs.ver }} -PbuildNumber=${{ github.run_number }} --build-cache --parallel :app:testDebugUnitTest :app:assembleDebug
       - name: Package web version
         run: cp web/index.html "SpringCalc-web-v${{ steps.v.outputs.ver }}.html"

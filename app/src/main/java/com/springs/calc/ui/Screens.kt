@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.dp
 import com.springs.calc.*
 import com.springs.calc.SpringCalc.Strength
 import com.springs.calc.SpringCalc.Verdict
+import org.json.JSONArray
+import org.json.JSONObject
 import androidx.compose.runtime.saveable.rememberSaveable
 
 private fun MutableState<String>.si(u: Units, k: Kind) = value.toDoubleOrNull()?.let { u.toSi(it, k) }!!
@@ -61,7 +63,7 @@ private fun MultiInput(label: String, unit: String, items: SnapshotStateList<Mut
 
 // ================= 壓縮 =================
 @Composable
-fun CompressionScreen(u: Units) {
+fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
     val d = remember { mutableStateOf(u.def("2", Kind.LEN)) }; val od = remember { mutableStateOf(u.def("16", Kind.LEN)) }
     val na = remember { mutableStateOf("8") }; val l0 = remember { mutableStateOf(u.def("60", Kind.LEN)) }
     val lws = remember { mutableStateListOf(mutableStateOf(u.def("40", Kind.LEN))) }
@@ -79,6 +81,12 @@ fun CompressionScreen(u: Units) {
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
     NumField("壽命測試按壓回覆位置（循環最大長度，空白＝自由長）", u.len, lmaxS)
     PeenedSwitch(peened) { peened = it }
+    DrawingButton(onDrawing) {
+        JSONObject().put("type", 0).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened).put("end", end.key())
+            .put("d", d.si(u, Kind.LEN)).put("od", od.si(u, Kind.LEN)).put("na", num(na)!!).put("l0", l0.si(u, Kind.LEN))
+            .put("lw", JSONArray(lws.mapNotNull { it.value.toDoubleOrNull()?.let { x -> u.toSi(x, Kind.LEN) } }))
+            .put("lmax", lmaxS.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) } ?: 0.0).toString()
+    }
     val base = runCatching {
         SpringCalc.compression(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(na)!!, l0.si(u, Kind.LEN),
             l0.si(u, Kind.LEN), mat, end)
@@ -121,7 +129,7 @@ fun CompressionScreen(u: Units) {
 
 // ================= 扭力 =================
 @Composable
-fun TorsionScreen(u: Units) {
+fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
     val d = remember { mutableStateOf(u.def("2", Kind.LEN)) }; val od = remember { mutableStateOf(u.def("16", Kind.LEN)) }
     val nb = remember { mutableStateOf("6") }; val l1 = remember { mutableStateOf(u.def("30", Kind.LEN)) }
     val l2 = remember { mutableStateOf(u.def("30", Kind.LEN)) }
@@ -140,6 +148,12 @@ fun TorsionScreen(u: Units) {
     MultiInput("扭轉角 θ", "度", angs, "新增扭轉角")
     NumField("壽命測試按壓回覆的位置角度（預載，0＝完全放鬆）", "度", angMin)
     PeenedSwitch(peened) { peened = it }
+    DrawingButton(onDrawing) {
+        JSONObject().put("type", 1).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened)
+            .put("d", d.si(u, Kind.LEN)).put("od", od.si(u, Kind.LEN)).put("nb", num(nb)!!).put("l1", l1.si(u, Kind.LEN)).put("l2", l2.si(u, Kind.LEN))
+            .put("armR", arm.si(u, Kind.LEN)).put("ang", JSONArray(angs.mapNotNull { it.value.toDoubleOrNull() }))
+            .put("amin", angMin.value.toDoubleOrNull() ?: 0.0).toString()
+    }
     val dSi = runCatching { d.si(u, Kind.LEN) }.getOrNull()
     fun calc(angle: Double) = SpringCalc.torsion(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(nb)!!,
         l1.si(u, Kind.LEN), l2.si(u, Kind.LEN), angle, arm.si(u, Kind.LEN), mat)
@@ -177,7 +191,7 @@ fun TorsionScreen(u: Units) {
 
 // ================= 拉伸 =================
 @Composable
-fun ExtensionScreen(u: Units) {
+fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
     val d = remember { mutableStateOf(u.def("2", Kind.LEN)) }; val od = remember { mutableStateOf(u.def("16", Kind.LEN)) }
     val na = remember { mutableStateOf("8") }; val l0 = remember { mutableStateOf(u.def("60", Kind.LEN)) }
     val lws = remember { mutableStateListOf(mutableStateOf(u.def("80", Kind.LEN))) }
@@ -237,6 +251,13 @@ fun ExtensionScreen(u: Units) {
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
     NumField("壽命測試按壓回覆位置（空白＝自由長，此時負荷＝初張力）", u.len, lminS)
     PeenedSwitch(peened) { peened = it }
+    DrawingButton(onDrawing) {
+        JSONObject().put("type", 2).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened)
+            .put("d", d.si(u, Kind.LEN)).put("od", od.si(u, Kind.LEN)).put("na", num(na)!!).put("l0", l0.si(u, Kind.LEN))
+            .put("fi", fi.si(u, Kind.FORCE)).put("fm", fm.si(u, Kind.FORCE)).put("r1", r1.si(u, Kind.LEN)).put("r2", r2.si(u, Kind.LEN))
+            .put("lw", JSONArray(lws.mapNotNull { it.value.toDoubleOrNull()?.let { x -> u.toSi(x, Kind.LEN) } }))
+            .put("lmin", lminS.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) } ?: 0.0).toString()
+    }
     fun calc(lw: Double) = SpringCalc.extension(d.si(u, Kind.LEN), od.si(u, Kind.LEN), num(na)!!,
         l0.si(u, Kind.LEN), lw, fi.si(u, Kind.FORCE), fm.si(u, Kind.FORCE), mat,
         r1.si(u, Kind.LEN), r2.si(u, Kind.LEN))
@@ -297,7 +318,7 @@ private fun strengthOf(x: Double, bending: Boolean) = Strength(x, if (bending)
 else when { x <= .45 -> Verdict.OK; x <= .65 -> Verdict.CAUTION; else -> Verdict.FAIL })
 
 @Composable
-fun DesignScreen(u: Units) {
+fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
     var type by rememberSaveable { mutableStateOf(0) }
     var mat by remember { mutableStateOf(Material.all[0]) }
     var end by remember { mutableStateOf(EndType.CLOSED_GROUND) }
@@ -355,27 +376,44 @@ fun DesignScreen(u: Units) {
     val tol = (tolS.value.toDoubleOrNull() ?: 5.0) / 100
     val nT = nTargetS.value.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
     var err: String? = null; var res: SpringCalc.DesignResult? = null
+    var mk: ((SpringCalc.DesignCand) -> String)? = null
+    val imp = u == Units.IMPERIAL; val matIdx = Material.all.indexOf(mat)
     if (odV == null || odV <= 0) err = "請輸入外徑上限"
     else when (type) {
         0 -> {
             val l1 = v(cL1, Kind.LEN); val f1 = v(cF1, Kind.FORCE); val l2 = v(cL2, Kind.LEN); val f2 = v(cF2, Kind.FORCE)
             if (l1 == null || f1 == null || l2 == null || f2 == null) err = "請輸入完整的位置與力量"
             else if (!(l1 > l2 && l2 > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：安裝長度 L1 > 工作長度 L2 > 0，且 F2 > F1 ≥ 0"
-            else res = SpringCalc.designCompression(SpringCalc.CompSpec(mat, end, odV, opt(cId), opt(cL0), l1, f1, l2, f2, peened, nT, tol))
+            else {
+                res = SpringCalc.designCompression(SpringCalc.CompSpec(mat, end, odV, opt(cId), opt(cL0), l1, f1, l2, f2, peened, nT, tol))
+                mk = { c -> JSONObject().put("type", 0).put("imp", imp).put("mat", matIdx).put("peen", peened).put("end", end.key())
+                    .put("d", c.d).put("od", c.dm + c.d).put("na", c.na).put("l0", c.v["L0"] ?: 0.0).put("lw", JSONArray(listOf(l1, l2))).toString() }
+            }
         }
         1 -> {
             val l1 = v(eL1, Kind.LEN); val f1 = v(eF1, Kind.FORCE); val l2 = v(eL2, Kind.LEN); val f2 = v(eF2, Kind.FORCE)
             val hf = eHook.value.toDoubleOrNull()?.takeIf { it > 0 } ?: 1.0
             if (l1 == null || f1 == null || l2 == null || f2 == null) err = "請輸入完整的位置與力量"
             else if (!(l2 > l1 && l1 > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：最大工作長度 L2 > 安裝長度 L1 > 0，且 F2 > F1 ≥ 0"
-            else res = SpringCalc.designExtension(SpringCalc.ExtSpec(mat, odV, hf, l1, f1, l2, f2, peened, nT, tol))
+            else {
+                res = SpringCalc.designExtension(SpringCalc.ExtSpec(mat, odV, hf, l1, f1, l2, f2, peened, nT, tol))
+                mk = { c -> JSONObject().put("type", 2).put("imp", imp).put("mat", matIdx).put("peen", peened)
+                    .put("d", c.d).put("od", c.dm + c.d).put("na", c.na).put("l0", c.v["L0"] ?: 0.0).put("fi", c.v["Fi"] ?: 0.0).put("fm", f2)
+                    .put("r1", c.dm / 2).put("r2", 2 * c.d).put("lw", JSONArray(listOf(l2))).put("lmin", l1).toString() }
+            }
         }
         else -> {
             val r = v(tR, Kind.LEN); val a1 = v(tA1, Kind.LEN); val a2 = v(tA2, Kind.LEN); val f1 = v(tF1, Kind.FORCE); val f2 = v(tF2, Kind.FORCE)
             val th1 = tTh1.value.toDoubleOrNull(); val th2 = tTh2.value.toDoubleOrNull()
             if (r == null || a1 == null || a2 == null || f1 == null || f2 == null || th1 == null || th2 == null) err = "請輸入完整的角度、力量與臂長"
             else if (!(th2 > th1 && r > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：θ2 > θ1，R > 0，且 F2 > F1 ≥ 0"
-            else res = SpringCalc.designTorsion(SpringCalc.TorSpec(mat, odV, opt(tShaft), opt(tLen), r, a1, a2, th1, f1, th2, f2, peened, nT, tol))
+            else {
+                res = SpringCalc.designTorsion(SpringCalc.TorSpec(mat, odV, opt(tShaft), opt(tLen), r, a1, a2, th1, f1, th2, f2, peened, nT, tol))
+                mk = { c -> val tot = c.v["thTot"] ?: 0.0
+                    JSONObject().put("type", 1).put("imp", imp).put("mat", matIdx).put("peen", peened)
+                        .put("d", c.d).put("od", c.dm + c.d).put("nb", c.na).put("l1", a1).put("l2", a2).put("armR", r)
+                        .put("ang", JSONArray(listOf(tot))).put("amin", maxOf(0.0, tot - (th2 - th1))).toString() }
+            }
         }
     }
     if (err != null) { ResultCard(emptyList(), listOf(err), title = "請檢查輸入"); return }
@@ -417,6 +455,7 @@ fun DesignScreen(u: Units) {
                 "預估壽命" to lifeText(g("N"), g("below") > 0, "無限壽命 (>10⁶ 次)"))
         }
         ResultCard(rows, c.fails.map { "不符：$it" } + c.warns, title = title)
+        mk?.let { f -> DrawingButton(onDrawing) { f(c) } }
     }
     Text("設計假設：線徑取常用規格系列，中徑以 0.25 mm 掃描，圈數取 0.25 圈的倍數。壓縮：壓並力需 ≥ 1.15×工作力、旋繞比 4～12、剪應力 ≤ 0.65Sut；" +
         "拉伸：自由長 = (Na+1)·d + 2×鉤內長度，初張力由 F1 反推且需在建議範圍，鉤環 r1 = D/2、r2 = 2d；扭力：臂長計入等效圈數，扭緊後內徑需大於軸徑、彎曲應力 ≤ 0.78Sut。" +

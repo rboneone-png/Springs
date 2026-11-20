@@ -41,6 +41,7 @@ private fun App() {
     val tab = Tab.entries[pagerState.currentPage]
     var units by rememberSaveable { mutableStateOf(Units.METRIC) }
     var showManual by rememberSaveable { mutableStateOf(false) }
+    var drawingJson by remember { mutableStateOf<String?>(null) }
     // 說明書以覆蓋層顯示，關閉後回到原畫面，已輸入的數值不會消失
     Box(Modifier.fillMaxSize()) {
     Scaffold(
@@ -67,14 +68,15 @@ private fun App() {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (Tab.entries[page]) {
-                    Tab.COMP -> CompressionScreen(units)
-                    Tab.TORS -> TorsionScreen(units)
-                    Tab.EXT -> ExtensionScreen(units)
-                    Tab.DESIGN -> DesignScreen(units)
+                    Tab.COMP -> CompressionScreen(units) { drawingJson = it }
+                    Tab.TORS -> TorsionScreen(units) { drawingJson = it }
+                    Tab.EXT -> ExtensionScreen(units) { drawingJson = it }
+                    Tab.DESIGN -> DesignScreen(units) { drawingJson = it }
                 }
             }
         }
     }
     if (showManual) ManualScreen { showManual = false }
+    drawingJson?.let { DrawingScreen(it) { drawingJson = null } }
     }
 }

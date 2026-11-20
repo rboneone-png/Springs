@@ -22,3 +22,6 @@ Kotlin + Jetpack Compose + Material3。三個分頁：壓縮 / 扭力 / 拉伸�
 
 ## 操作說明書
 程式內建圖文對照的操作說明書：網頁版點右上「說明」，APP 點上方「說明」。內容（含畫面導覽線框圖與各彈簧參數位置圖）APP 與網頁版相同。
+
+## 工程圖
+各計算頁與設計頁的「產生工程圖」可輸出 A4 橫向圖面（左：規格，右：示意圖）。網頁版可列印／存成 PDF、下載 SVG/PNG；APP 以 WebView 顯示並用系統列印存成 PDF。繪圖程式位於 `web/index.html` 的 `drawing` script，APP 用 `tools/sync_drawing.py` 複製到 `app/src/main/assets/drawing.js`。
