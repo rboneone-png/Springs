@@ -1,5 +1,6 @@
 /* ===== 彈簧 3D 模型與 STEP 輸出（純前端；replicad / OpenCascade WASM + three.js）=====
  * 輸入 inp 為計算器內部使用的 SI 單位（mm），欄位同 inpFromTab() 的輸出。
+ * 中心線幾何由 springpath.js 提供（與工程圖共用同一份）；這裡負責把它掃成實體、輸出 STEP/STL、顯示 3D。
  * 全部計算在使用者瀏覽器內完成，不連線任何外部服務。
  */
 import * as THREE from "three";
@@ -10,13 +11,9 @@ import {
 } from "./vendor/replicad/replicad.js";
 import opencascade from "./vendor/opencascade/replicad_single.js";
 
-const DEG = 180 / Math.PI;
-/* 密合圈之間保留 1% 線徑的間隙（d=2 約 0.02 mm）：相鄰圈剛好相切、或間隙小於 CAD 的建模容差
- * （SolidWorks 約 0.01 mm）時，舊版 CAD 會把兩圈判成相交而「破圖」。 */
-const CLOSE_GAP = 1.01;
-const ENDS = {
-  cg: "閉端磨平", c: "閉端不磨", o: "開端不磨", og: "開端磨平",
-};
+const SP = window.SpringPath;                 // springpath.js 以一般 <script> 先載入
+if (!SP) throw new Error("springpath.js 未載入");
+const r3 = SP.r3;                             // 顯示用：最多 3 位小數
 
 let ocReady = null;
 function initOC() {
@@ -31,29 +28,9 @@ function initOC() {
 /* ---------- 幾何小工具 ---------- */
 const P = (v) => [v.x, v.y, v.z];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
 const unit = (a) => { const n = Math.hypot(a[0], a[1], a[2]); return [a[0] / n, a[1] / n, a[2] / n]; };
-const r3 = (x) => +Number(x).toFixed(3);                              // 顯示用：最多 3 位小數
-const num = (x, name) => {
-  if (typeof x !== "number" || !isFinite(x)) throw new Error(`參數 ${name} 無效`);
-  return x;
-};
-
-/* 一段螺旋：turns 圈、節距 pitch；起點角度 angle0（度）、起點高度 z0 */
-/* 螺旋切成每段最多半圈：每張曲面只覆蓋一小段，舊版 CAD（SolidWorks 2015）才讀得正確 */
-function helixPieces(R, pitch, turns, z0, angle0) {
-  const out = [];
-  let left = turns, ang = angle0, z = z0;
-  while (left > 1e-9) {
-    const t = Math.min(0.5, left);
-    let w = makeHelix(pitch, pitch * t, R);
-    if (Math.abs(ang % 360) > 1e-9) w = w.rotate(ang % 360, [0, 0, 0], [0, 0, 1]);
-    out.push(w.translate(0, 0, z));
-    ang += t * 360; z += pitch * t; left -= t;
-  }
-  return out;
-}
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 /* 沿 spine 掃出直徑 d 的圓線材。
  * 輪廓用「兩個半圓弧」而不是一個整圓：整圓會產生週期曲面，STEP 內變成首尾不夾緊的 B-spline，
@@ -61,7 +38,6 @@ function helixPieces(R, pitch, turns, z0, angle0) {
 function sweepWire(spine, d) {
   const s = P(spine.startPoint), t = unit(P(spine.tangentAt(0)));
   const ref = Math.abs(t[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
   const u = unit(cross(t, ref)), v = cross(t, u), r = d / 2;
   const at = (a, b) => add(s, add(mul(u, r * a), mul(v, r * b)));
   const profile = assembleWire([
@@ -71,130 +47,57 @@ function sweepWire(spine, d) {
   return genericSweep(profile, spine, { transitionMode: "transformed" });
 }
 
-/* ---------- 壓縮彈簧 ---------- */
-function compressionShape(inp) {
-  const d = num(inp.d, "d"), od = num(inp.od, "OD"), na = num(inp.na, "Na"), l0 = num(inp.l0, "L0");
-  const end = inp.end || "cg", R = (od - d) / 2;
-  if (!(na > 0)) throw new Error("有效圈數需大於 0");
-  const closed = end === "cg" || end === "c", ground = end === "cg" || end === "og";
-  let p, z0, secs;
-  if (end === "cg") { p = (l0 - 2 * d) / na; z0 = 0; }
-  else if (end === "c") { p = (l0 - 3 * d) / na; z0 = d / 2; }
-  else if (end === "o") { p = (l0 - d) / na; z0 = d / 2; }
-  else { p = l0 / (na + 1); z0 = 0; }
-  if (p < d * CLOSE_GAP - 1e-9) {
-    throw new Error(`有效圈節距 ${p.toFixed(3)} mm 小於線徑 ${d} mm，線圈會互相穿透。請檢查自由長 L0 與有效圈數 Na。`);
+/* 中心線描述子 → OpenCascade 邊 */
+function edgeOf(d) {
+  if (d.k === "helix") {
+    let w = makeHelix(d.pitch, d.pitch * d.turns, d.R);
+    if (Math.abs(d.ang0 % 360) > 1e-9) w = w.rotate(d.ang0 % 360, [0, 0, 0], [0, 0, 1]);
+    return w.translate(0, 0, d.z0);
   }
-  if (closed) secs = [[1, d * CLOSE_GAP], [na, p], [1, d * CLOSE_GAP]];
-  else secs = [[end === "og" ? na + 1 : na, p]];
-
-  let z = z0, ang = 0;
-  const wires = [];
-  for (const [turns, pitch] of secs) {
-    wires.push(...helixPieces(R, pitch, turns, z, ang));
-    z += turns * pitch; ang += turns * 360;
-  }
-  let solid = sweepWire(assembleWire(wires), d);
-  if (ground) {
-    const cut = makeCylinder(od, l0, [0, 0, 0], [0, 0, 1]);
-    solid = solid.intersect(cut);
-  }
-  return {
-    shape: solid, name: "Compression spring",
-    note: `壓縮彈簧　${ENDS[end] || end}　線徑 ${r3(d)}　外徑 ${r3(od)}　有效圈 ${r3(na)}　自由長 ${r3(l0)}`,
-  };
+  if (d.k === "line") return makeLine(d.a, d.b);
+  if (d.k === "tarc") return makeTangentArc(d.s, d.t, d.e);
+  return makeThreePointArc(d.p0, d.pm, d.p1);
 }
 
-/* ---------- 扭力彈簧（自由狀態；兩腳在水平面內沿螺旋切線方向伸出）---------- */
-function torsionShape(inp) {
-  const d = num(inp.d, "d"), od = num(inp.od, "OD"), nb = num(inp.nb, "N");
-  const l1 = num(inp.l1, "L1"), l2 = num(inp.l2, "L2"), R = (od - d) / 2;
-  if (!(nb > 0)) throw new Error("本體圈數需大於 0");
-  if (!(l1 > 0 && l2 > 0)) throw new Error("臂長 L1、L2 需大於 0");
-  const pcs = helixPieces(R, d * CLOSE_GAP, nb, d / 2, 0);
-  const first = pcs[0], last = pcs[pcs.length - 1];
-  const S = P(first.startPoint), E = P(last.endPoint);
-  const hz = (v) => unit([v[0], v[1], 0]);                          // 腳在水平面內（垂直於軸線）
-  const t0 = hz(P(first.tangentAt(0))), t1 = hz(P(last.tangentAt(1)));
-  const leg1 = makeLine(sub(S, mul(t0, l1)), S);
-  const leg2 = makeLine(E, add(E, mul(t1, l2)));
-  const solid = sweepWire(assembleWire([leg1, ...pcs, leg2]), d);
-  return {
-    shape: solid, name: "Torsion spring",
-    note: `扭力彈簧（自由狀態）　線徑 ${r3(d)}　外徑 ${r3(od)}　本體圈數 ${r3(nb)}　臂長 ${r3(l1)} / ${r3(l2)}`,
-  };
-}
+const NAMES = ["Compression spring", "Torsion spring", "Extension spring"];
 
-/* ---------- 拉伸彈簧（密繞本體 + 兩端圓環鉤）----------
- * 鉤的路徑（由本體端點起算）：90° 側彎（半徑 r2）→ 直頸 → 圓環（中心半徑 r1，留開口）。
- * 圓環所在平面與軸線平行，並從軸線平面偏移 r2；這是簡化的機械鉤形，不是各廠專屬鉤形。
- */
-function hookEdges(anchor, tAnchor, rHat, sgn, d, r1, r2, neck) {
-  /* sgn=+1：上鉤（往 +z）；sgn=-1：下鉤（往 -z）。回傳的邊以「離開本體」的方向建立，
-   * 下鉤另備 ringReverse 供組成與螺旋同向的路徑。 */
-  const Tout = sgn > 0 ? tAnchor : mul(tAnchor, -1);              // 離開本體的切線方向
-  const Tdir = unit([Tout[0], Tout[1], 0]);
-  const Z = [0, 0, sgn];
-  const q1 = add(add(anchor, mul(Tdir, r2)), mul(Z, r2));          // 側彎結束點
-  const q2 = add(q1, mul(Z, neck));                                // 直頸結束點
-  const cen = sub(q2, mul(rHat, r1));                              // 圓環中心
-  const gap = Math.acos(Math.max(-1, 1 - (1.15 * d) / r1));        // 開口角：尖端與直頸至少隔 1.15 d
-  const A = 2 * Math.PI - gap;
-  const pt = (a) => add(cen, add(mul(rHat, r1 * Math.cos(a)), [0, 0, sgn * r1 * Math.sin(a)]));
-  return {
-    arc1: makeTangentArc(anchor, Tout, q1),
-    neck: neck > 1e-6 ? makeLine(q1, q2) : null,
-    ring: makeThreePointArc(pt(0), pt(A / 2), pt(A)),
-    ringReverse: makeThreePointArc(pt(A), pt(A / 2), pt(0)),
-    q1, q2,
-  };
-}
-
-function extensionShape(inp) {
-  const d = num(inp.d, "d"), od = num(inp.od, "OD"), na = num(inp.na, "Na");
-  const l0 = num(inp.l0, "L0"), r1 = num(inp.r1, "r1"), r2 = num(inp.r2, "r2");
-  const R = (od - d) / 2;
-  if (!(na > 0)) throw new Error("有效圈數需大於 0");
-  if (!(r1 > d / 2 && r2 > 0)) throw new Error("鉤環半徑 r1 需大於 d/2，r2 需大於 0");
-  const pitch = d * CLOSE_GAP;
-  const bodyLen = na * pitch + d;                // 實際本體長度（含圈間間隙）
-  const h = (l0 - bodyLen) / 2;                  // 每個鉤：本體端面到鉤孔內側的長度
-  const neck = h - r1 - r2 + d;                  // 側彎與圓環之間的直頸長度
-  if (neck < -1e-6) {
-    throw new Error(`自由長 L0 太短，容納不下鉤環（需要每鉤長度 ≥ r1 + r2 − d = ${(r1 + r2 - d).toFixed(2)} mm，目前 ${h.toFixed(2)} mm）。請加大 L0，或縮小 r1、r2。`);
+/* 可選的顯示狀態：自由狀態 + 每個工作長度 L（壓縮／拉伸）或每個扭轉角 θ（扭力） */
+export function stateList(inp) {
+  const fa = typeof inp.fa === "number" && isFinite(inp.fa) ? inp.fa : 180;
+  if (inp.type === 1) {
+    return [{ label: `自由狀態（α0 = ${r3(fa)}°）`, tag: "free" }].concat(
+      (inp.ang || []).map((a, i) => ({ label: `θ${i + 1} = ${r3(a)}°（兩腳夾角 ${r3(fa - a)}°）`, th: a, tag: `th${r3(a)}` })));
   }
-  if (h < 2 * r1 + 0.3) {
-    throw new Error(`自由長 L0 太短，鉤環會碰到本體（每鉤長度需 ≥ 2·r1 = ${(2 * r1).toFixed(2)} mm，目前 ${h.toFixed(2)} mm）。`);
+  const free = { label: `自由長 L0 = ${r3(inp.l0)} mm`, tag: "free" };
+  return [free].concat((inp.lw || []).map((x, i) => ({ label: `L${i + 1} = ${r3(x)} mm`, lw: x, tag: `L${r3(x)}` })));
+}
+
+export function buildSpring(inp, st) {
+  const path = SP.springPath(inp, st);
+  const m = path.meta;
+  let solid = sweepWire(assembleWire(path.pieces.map(edgeOf)), m.d);
+  if (path.clipZ) {                                   // 壓縮彈簧磨平端：在 z0、z1 兩處平切
+    const [z0, z1] = path.clipZ;
+    solid = solid.intersect(makeCylinder(m.od, z1 - z0, [0, 0, z0], [0, 0, 1]));
   }
-  const bz0 = h;                                  // 本體底面；下鉤孔內側為 z = 0
-  const body = helixPieces(R, pitch, na, bz0 + d / 2, 0);
-  const S = P(body[0].startPoint), E = P(body[body.length - 1].endPoint);
-  const tS = unit(P(body[0].tangentAt(0))), tE = unit(P(body[body.length - 1].tangentAt(1)));
-  const rS = unit([S[0], S[1], 0]), rE = unit([E[0], E[1], 0]);
-  const top = hookEdges(E, tE, rE, +1, d, r1, r2, Math.max(neck, 0));
-  const bot = hookEdges(S, tS, rS, -1, d, r1, r2, Math.max(neck, 0));
-  /* 下鉤：由圓環尖端 → 圓環 → 直頸 → 側彎 → 本體起點（與螺旋方向一致） */
-  const botEdges = [bot.ringReverse];
-  if (bot.neck) botEdges.push(makeLine(bot.q2, bot.q1));
-  botEdges.push(makeTangentArc(bot.q1, [0, 0, 1], S));
-  const topEdges = [top.arc1];
-  if (top.neck) topEdges.push(top.neck);
-  topEdges.push(top.ring);
-  const solid = sweepWire(assembleWire([...botEdges, ...body, ...topEdges]), d);
-  return {
-    shape: solid, name: "Extension spring",
-    note: `拉伸彈簧（圓環鉤）　線徑 ${r3(d)}　外徑 ${r3(od)}　有效圈 ${r3(na)}　自由長（鉤內）${r3(l0)}　r1 ${r3(r1)}　r2 ${r3(r2)}`,
-  };
+  if (path.post.rot) solid = solid.rotate(path.post.rot, [0, 0, 0], [0, 0, 1]);
+  if (path.post.mirror) solid = solid.mirror("YZ");   // 左旋 = 右旋的鏡像
+  return { shape: solid, name: NAMES[inp.type || 0], note: m.note, meta: m };
 }
-
-export function buildSpring(inp) {
-  if (inp.type === 1) return torsionShape(inp);
-  if (inp.type === 2) return extensionShape(inp);
-  return compressionShape(inp);
-}
-
 /* ---------- 檢視器（three.js） ---------- */
 let viewer = null;
+/* 操作：左鍵旋轉、右鍵（或中鍵）平移、滾輪縮放；觸控：單指旋轉、雙指平移＋縮放。不需切換模式。 */
+function applyMode(controls) {
+  controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+  controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+}/* 回到預設視角（置中、斜上方） */
+export function resetView() {
+  if (!viewer) return;
+  viewer.camera.position.copy(viewer.home.pos);
+  viewer.controls.target.copy(viewer.home.target);
+  viewer.camera.up.set(0, 0, 1);
+  viewer.controls.update();
+}
 function disposeViewer() {
   if (!viewer) return;
   cancelAnimationFrame(viewer.raf);
@@ -232,13 +135,15 @@ function showMesh(container, mesh, edgesLines) {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.copy(c);
   controls.enableDamping = true;
+  controls.screenSpacePanning = true;
+  applyMode(controls);
   const resize = () => {
     const w = container.clientWidth || 600, h = container.clientHeight || 400;
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
   };
   const ro = new ResizeObserver(resize); ro.observe(container); resize();
-  viewer = { renderer, scene, camera, controls, ro, raf: 0 };
+  viewer = { renderer, scene, camera, controls, ro, raf: 0, home: { pos: camera.position.clone(), target: c.clone() } };
   const loop = () => { viewer.raf = requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); };
   loop();
   void edgesLines;
@@ -263,7 +168,19 @@ function meshStats(mesh) {
 let current = null;
 const $ = (s) => document.querySelector(s);
 
+let curInp = null, states = [];
+/* 開啟檢視：列出「自由狀態」與每個工作長度／扭轉角，預設顯示自由狀態；切換選單即重建模型 */
 export async function open(inp) {
+  const sel = $("#s3dstate");
+  curInp = inp; states = stateList(inp);
+  sel.innerHTML = states.map((s, i) => `<option value="${i}">${s.label}</option>`).join("");
+  sel.hidden = states.length < 2;
+  sel.onchange = () => showState(+sel.value);
+  await showState(0);
+}
+
+async function showState(idx) {
+  const inp = curInp, st = states[idx] || states[0];
   const status = $("#s3dstat"), body = $("#s3dbody"), dlStep = $("#s3dstep"), dlStl = $("#s3dstl"), dlStep203 = $("#s3dstep203");
   current = null; dlStep.disabled = true; dlStl.disabled = true; dlStep203.disabled = true;
   status.textContent = "載入 3D 核心…（第一次約 20 MB，之後會使用快取）";
@@ -273,12 +190,12 @@ export async function open(inp) {
     status.textContent = "建立 3D 模型中…";
     await new Promise((r) => setTimeout(r, 30));            // 讓畫面先更新
     const t0 = performance.now();
-    const res = buildSpring(inp);
+    const res = buildSpring(inp, st);
     const tol = Math.max(inp.d / 60, 0.01);
     const mesh = res.shape.mesh({ tolerance: tol, angularTolerance: 0.2 });
     if (!mesh.triangles.length) throw new Error("產生的實體沒有任何面，請檢查輸入參數。");
     showMesh(body, mesh);
-    current = { ...res, tol };
+    current = { ...res, tol, tag: st.tag };
     dlStep.disabled = false; dlStl.disabled = false; dlStep203.disabled = false;
     const q = meshStats(mesh);
     let vol = q.vol;                                          // 網格體積（粗網格偏小）；優先用 OCC 精確體積
@@ -294,7 +211,7 @@ export async function open(inp) {
 
 function fname(ext) {
   const d = new Date(), p = (n) => String(n).padStart(2, "0");
-  const tag = (current?.name || "spring").toLowerCase().replace(/\s+/g, "-");
+  const tag = (current?.name || "spring").toLowerCase().replace(/\s+/g, "-") + (current?.tag && current.tag !== "free" ? "-" + current.tag : "");
   return `${tag}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.${ext}`;
 }
 function save(blob, name) {
@@ -331,3 +248,5 @@ export function downloadSTL() {
   save(current.shape.blobSTL({ tolerance: current.tol, angularTolerance: 0.3, binary: true }), fname("stl"));
 }
 export function close() { disposeViewer(); current = null; }
+
+export function getViewer() { return viewer; }

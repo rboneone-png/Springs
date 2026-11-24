@@ -71,6 +71,7 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
     var end by remember { mutableStateOf(EndType.CLOSED_GROUND) }
     val lmaxS = remember { mutableStateOf("") }
     var peened by remember { mutableStateOf(false) }
+    val treat = remember { TreatState() }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lmaxS to Kind.LEN) + lws.map { it to Kind.LEN })
     Hint()
     CompressionDiagram()
@@ -81,8 +82,9 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
     NumField("壽命測試按壓回覆位置（循環最大長度，空白＝自由長）", u.len, lmaxS)
     PeenedSwitch(peened) { peened = it }
+    TreatFields(Material.all.indexOf(mat), treat)
     DrawingButton(onDrawing) {
-        JSONObject().put("type", 0).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened).put("end", end.key())
+        treat.putTo(JSONObject()).put("type", 0).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened).put("end", end.key())
             .put("d", d.si(u, Kind.LEN)).put("od", od.si(u, Kind.LEN)).put("na", num(na)!!).put("l0", l0.si(u, Kind.LEN))
             .put("lw", JSONArray(lws.mapNotNull { it.value.toDoubleOrNull()?.let { x -> u.toSi(x, Kind.LEN) } }))
             .put("lmax", lmaxS.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) } ?: 0.0).toString()
@@ -125,6 +127,7 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
             ), r.warnings.filter { it.startsWith("工作長度") } + extraW, title = "L${i + 1} = ${f(lw, 2)} ${u.len}")
         }
     }
+    TreatCard(Material.all.indexOf(mat), treat)
 }
 
 // ================= 扭力 =================
@@ -137,7 +140,10 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
     val arm = remember { mutableStateOf(u.def("30", Kind.LEN)) }
     var mat by remember { mutableStateOf(Material.all[0]) }
     val angMin = remember { mutableStateOf("0") }
+    val fa = remember { mutableStateOf("180") }
+    var hand by remember { mutableStateOf(0) }
     var peened by remember { mutableStateOf(false) }
+    val treat = remember { TreatState() }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l1 to Kind.LEN, l2 to Kind.LEN, arm to Kind.LEN))
     Hint()
     TorsionDiagram()
@@ -145,11 +151,14 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
     Row2({ NumField("線徑 d", u.len, d) }, { NumField("外徑 OD", u.len, od) })
     Row2({ NumField("本體圈數 N", "圈", nb) }, { NumField("受力點半徑 R", u.len, arm) })
     Row2({ NumField("臂長 L1", u.len, l1) }, { NumField("臂長 L2", u.len, l2) })
+    NumField("自由角度 α0（自由狀態兩腳夾角）", "度", fa)
+    Dropdown("旋向（沿軸線方向看的纏繞方向；扭緊時兩腳夾角變小）", listOf(0, 1), hand, { if (it == 0) "右旋（右手螺旋）" else "左旋（左手螺旋）" }) { hand = it }
     MultiInput("扭轉角 θ", "度", angs, "新增扭轉角")
     NumField("壽命測試按壓回覆的位置角度（預載，0＝完全放鬆）", "度", angMin)
     PeenedSwitch(peened) { peened = it }
+    TreatFields(Material.all.indexOf(mat), treat)
     DrawingButton(onDrawing) {
-        JSONObject().put("type", 1).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened)
+        treat.putTo(JSONObject()).put("fa", fa.value.toDoubleOrNull() ?: 180.0).put("hand", hand).put("type", 1).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened)
             .put("d", d.si(u, Kind.LEN)).put("od", od.si(u, Kind.LEN)).put("nb", num(nb)!!).put("l1", l1.si(u, Kind.LEN)).put("l2", l2.si(u, Kind.LEN))
             .put("armR", arm.si(u, Kind.LEN)).put("ang", JSONArray(angs.mapNotNull { it.value.toDoubleOrNull() }))
             .put("amin", angMin.value.toDoubleOrNull() ?: 0.0).toString()
@@ -160,11 +169,26 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
     val base = runCatching { calc(0.0) }.getOrNull()
     if (base != null && dSi != null) {
         val sut = mat.sut(dSi)
+        // 自由角度 α0：工作時夾角 = α0 − θ。切線腳時，N 的小數圈 f 對應 α0 = 180° − 360°×f（以 360° 為週期）
+        val faV = fa.value.toDoubleOrNull() ?: 180.0
+        val nbV = num(nb) ?: 0.0
+        fun mod360(x: Double) = ((x % 360) + 360) % 360
+        val natFa = mod360(180 - 360 * (nbV - Math.floor(nbV)))
+        val dFa = Math.abs(mod360(faV - natFa + 180) - 180)
+        val faW = mutableListOf<String>()
+        if (faV < 0 || faV > 360) faW.add("自由角度 α0 應在 0～360 度之間")
+        else if (dFa > 1) {
+            val fT = (((180 - faV) / 360) % 1 + 1) % 1
+            val nEff = Math.floor(nbV - fT + .5) + fT
+            faW.add("兩腳要與線圈相切，N 的小數圈需對應自由角度 α0=${f(faV, 1)}°（小數 ${f(fT, 2)} 圈）。你輸入的 N=${f(nbV, 2)} 對應 ${f(natFa, 1)}°。" +
+                "3D 模型與工程圖會改用 N'=${f(nEff, 2)}；本頁的剛度與應力仍依輸入的 N 計算，建議把 N 改成 ${f(nEff, 2)}。")
+        }
         ResultCard(listOf(
             "中徑 D" to "${f(u.lenOut(base.dm), 3)} ${u.len}", "旋繞比 C" to f(base.c), "等效圈數 Na" to f(base.na, 2),
             "扭力常數" to "${f(u.torqueOut(base.ratePerDeg), 3)} ${u.torqueRate}",
             "抗拉強度 Sut" to "${f(u.stressOut(sut), 0)} ${u.stress}",
-        ), base.warnings, title = "彈簧基本參數")
+            "自由角度 α0（兩腳夾角）" to "${f(faV, 1)} 度",
+        ), base.warnings + faW, title = "彈簧基本參數")
         val aMin = angMin.value.toDoubleOrNull() ?: 0.0
         angs.forEachIndexed { i, st ->
             val angle = st.value.toDoubleOrNull() ?: return@forEachIndexed
@@ -175,6 +199,7 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
             val extraW = fat.warnings + sWarn("工作時", str) +
                 if (aMin >= angle) listOf("最小角度需小於工作扭轉角") else emptyList()
             ResultCard(listOf(
+                "工作時兩腳夾角（α0－θ）" to "${f(faV - angle, 1)} 度",
                 "扭矩 M" to "${f(u.torqueOut(r.torque), 2)} ${u.torque}",
                 "受力點負荷 F" to "${f(u.forceOut(r.force))} ${u.force}",
                 "彎曲應力 σmax" to "${f(u.stressOut(r.stress), 1)} ${u.stress}",
@@ -187,6 +212,7 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
             ), r.warnings + extraW, title = "θ${i + 1} = ${f(angle, 1)}°")
         }
     }
+    TreatCard(Material.all.indexOf(mat), treat)
 }
 
 // ================= 拉伸 =================
@@ -203,6 +229,8 @@ fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
     val lminS = remember { mutableStateOf("") }
     var peened by remember { mutableStateOf(false) }
     var mat by remember { mutableStateOf(Material.all[0]) }
+    var hook by remember { mutableStateOf(0) }
+    val treat = remember { TreatState() }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lminS to Kind.LEN,
         fi to Kind.FORCE, fm to Kind.FORCE, r1 to Kind.LEN, r2 to Kind.LEN) + lws.map { it to Kind.LEN })
     // 初張力：預設依線徑與外徑自動計算；使用者可手動修改，按「自動」隨時恢復
@@ -248,11 +276,14 @@ fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
         )
     }
     Row2({ NumField("鉤環中心半徑 r1", u.len, r1) }, { NumField("鉤側彎半徑 r2", u.len, r2) })
+    Dropdown("鉤型（只影響 3D 與工程圖）", listOf(0, 1), hook, { if (it == 0) "長開口鉤" else "圓環鉤" }) { hook = it }
+    Text("兩種鉤的上下兩鉤都共面（平行）；圓環鉤＝環立在線圈端、連接線橫越線圈中央。", style = MaterialTheme.typography.bodySmall)
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
     NumField("壽命測試按壓回覆位置（空白＝自由長，此時負荷＝初張力）", u.len, lminS)
     PeenedSwitch(peened) { peened = it }
+    TreatFields(Material.all.indexOf(mat), treat)
     DrawingButton(onDrawing) {
-        JSONObject().put("type", 2).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened)
+        treat.putTo(JSONObject()).put("hook", hook).put("type", 2).put("imp", u == Units.IMPERIAL).put("mat", Material.all.indexOf(mat)).put("peen", peened)
             .put("d", d.si(u, Kind.LEN)).put("od", od.si(u, Kind.LEN)).put("na", num(na)!!).put("l0", l0.si(u, Kind.LEN))
             .put("fi", fi.si(u, Kind.FORCE)).put("fm", fm.si(u, Kind.FORCE)).put("r1", r1.si(u, Kind.LEN)).put("r2", r2.si(u, Kind.LEN))
             .put("lw", JSONArray(lws.mapNotNull { it.value.toDoubleOrNull()?.let { x -> u.toSi(x, Kind.LEN) } }))
@@ -310,9 +341,12 @@ fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
                 title = "L${i + 1} = ${f(lw, 2)} ${u.len}")
         }
     }
+    TreatCard(Material.all.indexOf(mat), treat)
 }
 
 // ================= 規格設計 =================
+private fun matIdxOf(m: Material) = Material.all.indexOf(m)
+
 private fun strengthOf(x: Double, bending: Boolean) = Strength(x, if (bending)
     when { x <= .65 -> Verdict.OK; x <= .78 -> Verdict.CAUTION; else -> Verdict.FAIL }
 else when { x <= .45 -> Verdict.OK; x <= .65 -> Verdict.CAUTION; else -> Verdict.FAIL })
@@ -336,6 +370,8 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
     val tR = remember { mutableStateOf(len("30")) }; val tA1 = remember { mutableStateOf(len("30")) }; val tA2 = remember { mutableStateOf(len("30")) }
     val tTh1 = remember { mutableStateOf("0") }; val tF1 = remember { mutableStateOf(frc("0")) }
     val tTh2 = remember { mutableStateOf("90") }; val tF2 = remember { mutableStateOf(frc("10")) }
+    val tFa = remember { mutableStateOf("180") }
+    val treat = remember { TreatState() }
     val nTargetS = remember { mutableStateOf("100000") }; val tolS = remember { mutableStateOf("5") }
     UnitSync(u, listOf(odMax to Kind.LEN, cId to Kind.LEN, cL0 to Kind.LEN, cL1 to Kind.LEN, cF1 to Kind.FORCE, cL2 to Kind.LEN, cF2 to Kind.FORCE,
         eL1 to Kind.LEN, eF1 to Kind.FORCE, eL2 to Kind.LEN, eF2 to Kind.FORCE, tShaft to Kind.LEN, tLen to Kind.LEN, tR to Kind.LEN,
@@ -367,10 +403,12 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
             NumField("臂長 L2", u.len, tA2)
             Row2({ NumField("安裝角度 θ1", "度", tTh1) }, { NumField("θ1 時力量", u.force, tF1) })
             Row2({ NumField("工作角度 θ2", "度", tTh2) }, { NumField("θ2 時力量", u.force, tF2) })
+            NumField("自由角度 α0（兩腳夾角，用於工程圖與 3D）", "度", tFa)
         }
     }
     Row2({ NumField("目標壽命（空白＝不要求）", "次", nTargetS) }, { NumField("力量容許誤差", "%", tolS) })
     PeenedSwitch(peened) { peened = it }
+    TreatFields(matIdxOf(mat), treat)
 
     val odV = v(odMax, Kind.LEN)
     val tol = (tolS.value.toDoubleOrNull() ?: 5.0) / 100
@@ -386,7 +424,7 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
             else if (!(l1 > l2 && l2 > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：安裝長度 L1 > 工作長度 L2 > 0，且 F2 > F1 ≥ 0"
             else {
                 res = SpringCalc.designCompression(SpringCalc.CompSpec(mat, end, odV, opt(cId), opt(cL0), l1, f1, l2, f2, peened, nT, tol))
-                mk = { c -> JSONObject().put("type", 0).put("imp", imp).put("mat", matIdx).put("peen", peened).put("end", end.key())
+                mk = { c -> treat.putTo(JSONObject()).put("type", 0).put("imp", imp).put("mat", matIdx).put("peen", peened).put("end", end.key())
                     .put("d", c.d).put("od", c.dm + c.d).put("na", c.na).put("l0", c.v["L0"] ?: 0.0).put("lw", JSONArray(listOf(l1, l2))).toString() }
             }
         }
@@ -397,7 +435,7 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
             else if (!(l2 > l1 && l1 > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：最大工作長度 L2 > 安裝長度 L1 > 0，且 F2 > F1 ≥ 0"
             else {
                 res = SpringCalc.designExtension(SpringCalc.ExtSpec(mat, odV, hf, l1, f1, l2, f2, peened, nT, tol))
-                mk = { c -> JSONObject().put("type", 2).put("imp", imp).put("mat", matIdx).put("peen", peened)
+                mk = { c -> treat.putTo(JSONObject()).put("type", 2).put("imp", imp).put("mat", matIdx).put("peen", peened)
                     .put("d", c.d).put("od", c.dm + c.d).put("na", c.na).put("l0", c.v["L0"] ?: 0.0).put("fi", c.v["Fi"] ?: 0.0).put("fm", f2)
                     .put("r1", c.dm / 2).put("r2", 2 * c.d).put("lw", JSONArray(listOf(l2))).put("lmin", l1).toString() }
             }
@@ -410,7 +448,7 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
             else {
                 res = SpringCalc.designTorsion(SpringCalc.TorSpec(mat, odV, opt(tShaft), opt(tLen), r, a1, a2, th1, f1, th2, f2, peened, nT, tol))
                 mk = { c -> val tot = c.v["thTot"] ?: 0.0
-                    JSONObject().put("type", 1).put("imp", imp).put("mat", matIdx).put("peen", peened)
+                    treat.putTo(JSONObject()).put("type", 1).put("imp", imp).put("fa", tFa.value.toDoubleOrNull() ?: 180.0).put("mat", matIdx).put("peen", peened)
                         .put("d", c.d).put("od", c.dm + c.d).put("nb", c.na).put("l1", a1).put("l2", a2).put("armR", r)
                         .put("ang", JSONArray(listOf(tot))).put("amin", maxOf(0.0, tot - (th2 - th1))).toString() }
             }
@@ -423,6 +461,7 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
         listOf(if (r.ok) "方案依預估壽命由最佳排到最差；每種線徑只列壽命最佳的一組。"
         else "找不到完全符合全部條件的規格，以下為最接近的方案，各卡片已標出不符項目。可放寬空間、力量誤差或目標壽命後再試。"),
         title = "設計結果摘要")
+    TreatCard(matIdx, treat)
     r.cands.forEachIndexed { i, c ->
         val x = c.v; fun g(k: String) = x[k] ?: 0.0
         val title = "方案 ${i + 1}：線徑 ${f(u.lenOut(c.d), 3)} ${u.len}｜外徑 ${f(u.lenOut(g("OD")), 2)} ${u.len}"
