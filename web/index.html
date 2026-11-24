@@ -322,12 +322,14 @@ const scaleTxt=s=>s>=1?(Number.isInteger(s)?s+":1":s+":1"):("1:"+n2(1/s));
 const center=(x1,y1,x2,y2)=>ln(x1,y1,x2,y2,.15,'stroke-dasharray="4 1 .6 1"');
 
 /* ---------- 壓縮彈簧圖 ---------- */
-function drawComp(sp,A,c){const {d,od,l0,nt}=sp.dims,avW=A.w-56,avH=A.h-24,s=pickScale(od,l0,avW,avH);
- const x0=A.x+28+avW/2,top=A.y+10+(avH-l0*s)/2,bot=top+l0*s,R=od/2*s,w=d*s,n=Math.max(2,Math.round(nt));let o="";
+function drawComp(sp,A,c){const {d,od,l0}=sp.dims,avW=A.w-56,avH=A.h-24,s=pickScale(od,l0,avW,avH);
+ const x0=A.x+28+avW/2,top=A.y+10+(avH-l0*s)/2,bot=top+l0*s,R=od/2*s,w=d*s;let o="";
  o+=center(x0,top-5,x0,bot+5);
- const closed=(sp.end||"cg")!=="o"&&(sp.end||"cg")!=="og",p=(l0*s-w)/(n-1);let lead=null;
- for(let i=0;i<n;i++){const y=top+w/2+p*i,flat=closed&&(i===0||i===n-1);
-  if(flat)o+=wireSeg(x0-R+w/2,y,x0+R-w/2,y,w);else{o+=wireSeg(x0-R+w/2,y+p/3,x0+R-w/2,y-p/3,w);if(i===1)lead=[x0-R+w/2,y+p/3]}}
+ /* 與 3D 模型相同的圈距：閉端的端圈緊貼（節距＝線徑），有效圈在中間均分；不磨端部（c、o）端面內縮 d/2 */
+ const E_=sp.end||"cg",closed=E_==="cg"||E_==="c",m=(E_==="c"||E_==="o")?w/2:0,na=sp.dims.na;let lead=null;
+ if(closed){const pa=(l0*s-2*m-2*w)/na;o+=wireSeg(x0-R+w/2,top+m+w/2,x0+R-w/2,top+m+w/2,w)+wireSeg(x0-R+w/2,bot-m-w/2,x0+R-w/2,bot-m-w/2,w);
+  for(let i=0;i<Math.round(na);i++){const y=top+m+w+pa*(i+.5);o+=wireSeg(x0-R+w/2,y+pa/3,x0+R-w/2,y-pa/3,w);if(!lead)lead=[x0-R+w/2,y+pa/3]}}
+ else{const k=E_==="o"?na:na+1,pa=(l0*s-2*m)/k;for(let i=0;i<Math.round(k);i++){const y=top+m+pa*(i+.5);o+=wireSeg(x0-R+w/2,y+pa/3,x0+R-w/2,y-pa/3,w);if(!lead)lead=[x0-R+w/2,y+pa/3]}}
  o+=dimV(x0+R+14,top,bot,c.L(l0).toFixed(2),x0+R+1,x0+R+1);
  o+=dimH(x0-R,x0+R,bot+11,"Ø"+c.L(od).toFixed(2),bot+1,bot+1);
  if(lead)o+=ln(lead[0],lead[1],lead[0]-12,lead[1]-8,.2)+tx(lead[0]-12.5,lead[1]-8.5,"Ø"+c.L(d).toFixed(3),3,"end");
@@ -336,31 +338,38 @@ function drawComp(sp,A,c){const {d,od,l0,nt}=sp.dims,avW=A.w-56,avH=A.h-24,s=pic
 function drawExt(sp,A,c){const {d,od,na,l0,r1}=sp.dims,avW=A.w-56,avH=A.h-24,s=pickScale(od,l0,avW,avH);
  const x0=A.x+28+avW/2,top=A.y+10+(avH-l0*s)/2,bot=top+l0*s,R=od/2*s,w=d*s,rc=Math.max(r1*s,w),n=Math.max(3,Math.round(na+1));let o="";
  o+=center(x0,top-5,x0,bot+5);
- const by0=top+2*rc,by1=bot-2*rc,p=(by1-by0-w)/(n-1);let lead=null;
+ /* 本體長度 (Na+1)·d 置中（與 3D 一致），本體與鉤環之間以直頸連接 */
+ const bl=(na+1)*w,by0=(top+bot-bl)/2,by1=by0+bl,p=(by1-by0-w)/(n-1);let lead=null;
  for(let i=0;i<n;i++){const y=by0+w/2+p*i;o+=wireSeg(x0-R+w/2,y+p/3,x0+R-w/2,y-p/3,w);if(i===1)lead=[x0-R+w/2,y+p/3]}
+ const rt=top+2*rc-w/2,rb=bot-2*rc+w/2;if(by0+w/2>rt)o+=wireSeg(x0,rt,x0,by0+w/2,w);if(by1-w/2<rb)o+=wireSeg(x0,rb,x0,by1-w/2,w);
  for(const cy of [top+rc-w/2,bot-rc+w/2]){const ow=Math.max(w,.4);o+=`<circle cx="${n2(x0)}" cy="${n2(cy)}" r="${n2(rc)}" fill="none" stroke="#000" stroke-width="${n2(ow)}"/>`+(ow>1.1?`<circle cx="${n2(x0)}" cy="${n2(cy)}" r="${n2(rc)}" fill="none" stroke="#fff" stroke-width="${n2(ow-.6)}"/>`:"")}
  o+=dimV(x0+R+14,top,bot,c.L(l0).toFixed(2),x0+rc+1,x0+rc+1);
  o+=dimH(x0-R,x0+R,bot+11,"Ø"+c.L(od).toFixed(2),by1+1,by1+1);
  if(lead)o+=ln(lead[0],lead[1],lead[0]-12,lead[1]-8,.2)+tx(lead[0]-12.5,lead[1]-8.5,"Ø"+c.L(d).toFixed(3),3,"end");
  return {svg:o,scale:s}}
 /* ---------- 扭力彈簧圖（端視圖 + 側視圖） ---------- */
-function drawTor(sp,A,c){const {d,od,nb,l1,l2,th}=sp.dims,bodyH=(nb+1)*d,up=Math.max(l1,od/2),dn=Math.max(l2,od/2),Hh=up+dn;
- const totW=od+od+22,s=pickScale(totW,Math.max(Hh,bodyH),A.w-44,A.h-26);
- const ex=A.x+22+od/2*s,cy=A.y+12+up*s,rm=(od-d)/2*s,w=d*s;let o="";
- o+=center(ex-od/2*s-5,cy,ex+od/2*s+5,cy)+center(ex,cy-up*s-5,ex,cy+dn*s+5);
+function drawTor(sp,A,c){const {d,od,nb,l1,l2,th}=sp.dims,bodyH=(nb+1)*d,Rm=(od-d)/2,be=2*Math.PI*(nb-Math.floor(nb)),ar=th*Math.PI/180;
+ /* 與 3D 模型相同：腳沿繞線切線方向伸出；起腳在 0°（往 -y），末腳在小數圈對應的角度 */
+ const pt=al=>[Rm*Math.cos(al),Rm*Math.sin(al)],ep=al=>{const q=pt(al);return [q[0]-Math.sin(al)*l2,q[1]+Math.cos(al)*l2]};
+ const E=pt(be),A1=[Rm,-l1],A2=ep(be),W2=ep(be+ar);
+ const up=Math.max(od/2,A1[1],A2[1],W2[1],E[1]),dn=Math.max(od/2,-A1[1],-A2[1],-W2[1]),xr=Math.max(od/2,A1[0],A2[0],W2[0]),xl=Math.max(od/2,-A2[0],-W2[0]);
+ const totW=xr+xl+od+22,s=pickScale(totW,Math.max(up+dn,bodyH),A.w-44,A.h-26);
+ const ex=A.x+22+xl*s,cy=A.y+12+up*s,rm=Rm*s,w=d*s,X=x=>ex+x*s,Y=y=>cy-y*s;let o="";
+ o+=center(X(-xl)-5,cy,X(xr)+5,cy)+center(ex,cy-up*s-5,ex,cy+dn*s+5);
  o+=`<circle cx="${n2(ex)}" cy="${n2(cy)}" r="${n2(rm)}" fill="none" stroke="#000" stroke-width="${n2(Math.max(w,.4))}"/>`+(w>1.1?`<circle cx="${n2(ex)}" cy="${n2(cy)}" r="${n2(rm)}" fill="none" stroke="#fff" stroke-width="${n2(w-.6)}"/>`:"");
- o+=wireSeg(ex+rm,cy,ex+rm,cy-l1*s,w)+wireSeg(ex-rm,cy,ex-rm,cy+l2*s,w);
- const a=th*Math.PI/180,P=al=>[ex+rm*Math.cos(al),cy-rm*Math.sin(al)],Dd=al=>[-Math.sin(al),-Math.cos(al)],p2=P(Math.PI+a),d2=Dd(Math.PI+a);
- o+=`<line x1="${n2(p2[0])}" y1="${n2(p2[1])}" x2="${n2(p2[0]+d2[0]*l2*s)}" y2="${n2(p2[1]+d2[1]*l2*s)}" stroke="#000" stroke-width=".3" stroke-dasharray="3 1.5"/>`;
- const ra=Math.max(od/2*s+6,10),A1=P(Math.PI),aa=[ex+ra*Math.cos(Math.PI),cy-ra*Math.sin(Math.PI)],ab=[ex+ra*Math.cos(Math.PI+a),cy-ra*Math.sin(Math.PI+a)];
- o+=`<path d="M${n2(aa[0])},${n2(aa[1])} A${n2(ra)},${n2(ra)} 0 ${th>180?1:0} 0 ${n2(ab[0])},${n2(ab[1])}" fill="none" stroke="#000" stroke-width=".2"/>`+tx(ex-ra-2,cy+(ra*Math.sin(a)/2)+2,"θ="+th.toFixed(0)+"°",3,"end");
- o+=dimV(ex+od/2*s+13,cy-l1*s,cy,c.L(l1).toFixed(2),ex+rm+w/2+1,ex+od/2*s+1);
- o+=dimV(ex-od/2*s-13,cy,cy+l2*s,c.L(l2).toFixed(2),ex-rm-w/2-1,ex-od/2*s-1);
- o+=dimH(ex-od/2*s,ex+od/2*s,cy+dn*s+10,"Ø"+c.L(od).toFixed(2),cy+od/2*s+1,cy+od/2*s+1);
+ o+=wireSeg(X(Rm),Y(0),X(A1[0]),Y(A1[1]),w)+wireSeg(X(E[0]),Y(E[1]),X(A2[0]),Y(A2[1]),w);
+ const P0=pt(be+ar);
+ o+=`<line x1="${n2(X(P0[0]))}" y1="${n2(Y(P0[1]))}" x2="${n2(X(W2[0]))}" y2="${n2(Y(W2[1]))}" stroke="#000" stroke-width=".3" stroke-dasharray="3 1.5"/>`;
+ const ra=Math.max(od/2*s+6,10),aa=[ex+ra*Math.cos(be),cy-ra*Math.sin(be)],ab=[ex+ra*Math.cos(be+ar),cy-ra*Math.sin(be+ar)],mid=be+ar/2,tc=Math.cos(mid);
+ o+=`<path d="M${n2(aa[0])},${n2(aa[1])} A${n2(ra)},${n2(ra)} 0 ${th>180?1:0} 0 ${n2(ab[0])},${n2(ab[1])}" fill="none" stroke="#000" stroke-width=".2"/>`+tx(ex+(ra+2)*tc,cy-(ra+2)*Math.sin(mid)+1,"θ="+th.toFixed(0)+"°",3,tc<0?"end":"start");
+ o+=dimV(X(xr)+13,cy,cy+l1*s,c.L(l1).toFixed(2),X(Rm)+w/2+1,X(Rm)+w/2+1);
+ if(Math.abs(Math.sin(be))<.02){const ya=Math.min(Y(E[1]),Y(A2[1])),yb=Math.max(Y(E[1]),Y(A2[1])),xx=E[0]<0?X(-xl)-13:X(xr)+26;o+=dimV(xx,ya,yb,c.L(l2).toFixed(2),X(E[0])+(E[0]<0?-1:1)*(w/2+1),X(E[0])+(E[0]<0?-1:1)*(w/2+1))}
+ else o+=tx(X(A2[0]),Y(A2[1])+(A2[1]<E[1]?5:-3),"L2 = "+c.L(l2).toFixed(2),3,"middle");
+ o+=dimH(X(-od/2),X(od/2),cy+dn*s+10,"Ø"+c.L(od).toFixed(2),cy+od/2*s+1,cy+od/2*s+1);
  // 側視圖
  const fx0=A.x+A.w-22-od/2*s,fy=cy-up*s+((up+dn)*s-bodyH*s)/2,fh=bodyH*s,fw=od*s,n=Math.max(2,Math.round(nb));
  o+=center(fx0,fy-5,fx0,fy+fh+5);
- for(let i=0;i<n;i++){const y=fy+w/2+(fh-w)*i/(n-1),p=(fh-w)/(n-1);o+=wireSeg(fx0-fw/2+w/2,y+p/3,fx0+fw/2-w/2,y-p/3,w)}
+ for(let i=0;i<n;i++){const y=fy+w+w*i,p=w;o+=wireSeg(fx0-fw/2+w/2,y+p/3,fx0+fw/2-w/2,y-p/3,w)}
  o+=dimV(fx0+fw/2+13,fy,fy+fh,c.L(bodyH).toFixed(2),fx0+fw/2+1,fx0+fw/2+1);
  o+=dimH(fx0-fw/2,fx0+fw/2,fy+fh+11,"Ø"+c.L(od).toFixed(2),fy+fh+1,fy+fh+1);
  return {svg:o,scale:s}}
