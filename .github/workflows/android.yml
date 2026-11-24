@@ -48,7 +48,9 @@ jobs:
         run: python3 tools/sync_drawing.py
       - run: gradle -PappVersion=${{ steps.v.outputs.ver }} -PbuildNumber=${{ github.run_number }} --build-cache --parallel :app:testDebugUnitTest :app:assembleDebug
       - name: Package web version
-        run: cp web/index.html "SpringCalc-web-v${{ steps.v.outputs.ver }}.html"
+        run: |
+          cp web/index.html "SpringCalc-web-v${{ steps.v.outputs.ver }}.html"
+          (cd web && zip -qr "../SpringCalc-web3d-v${{ steps.v.outputs.ver }}.zip" .)
       - uses: actions/upload-artifact@v4
         with:
           name: SpringCalc-debug-apk
@@ -63,4 +65,5 @@ jobs:
           files: |
             app/build/outputs/apk/debug/*.apk
             SpringCalc-web-v${{ steps.v.outputs.ver }}.html
+            SpringCalc-web3d-v${{ steps.v.outputs.ver }}.zip
           generate_release_notes: true

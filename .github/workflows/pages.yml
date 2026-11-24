@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Publish web/index.html to gh-pages branch
+      - name: Publish web/ folder to gh-pages branch
         run: |
           rm -rf "$RUNNER_TEMP/site" && mkdir "$RUNNER_TEMP/site"
-          cp web/index.html "$RUNNER_TEMP/site/index.html" && touch "$RUNNER_TEMP/site/.nojekyll"
+          cp -r web/. "$RUNNER_TEMP/site/" && touch "$RUNNER_TEMP/site/.nojekyll"
           cd "$RUNNER_TEMP/site"
           git init -q -b gh-pages
           git config user.name "github-actions[bot]"

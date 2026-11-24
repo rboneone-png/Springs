@@ -1,6 +1,9 @@
 package com.springs.calc.ui
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.Column
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
@@ -26,11 +29,22 @@ fun EndType.key() = when (this) {
 @Composable
 fun DrawingButton(onDrawing: (String) -> Unit, build: () -> String) {
     val ctx = LocalContext.current
-    OutlinedButton(onClick = {
-        val json = runCatching(build).getOrNull()
-        if (json != null) onDrawing(json) else Toast.makeText(ctx, "請先輸入完整規格（線徑、外徑、圈數、長度等）", Toast.LENGTH_SHORT).show()
-    }) { Text("📐 產生工程圖（左：規格　右：示意圖）") }
+    Column {
+        OutlinedButton(onClick = {
+            val json = runCatching(build).getOrNull()
+            if (json != null) onDrawing(json) else Toast.makeText(ctx, "請先輸入完整規格（線徑、外徑、圈數、長度等）", Toast.LENGTH_SHORT).show()
+        }) { Text("📐 產生工程圖（左：規格　右：示意圖）") }
+        OutlinedButton(onClick = {
+            val json = runCatching(build).getOrNull()
+            if (json == null) Toast.makeText(ctx, "請先輸入完整規格（線徑、外徑、圈數、長度等）", Toast.LENGTH_SHORT).show()
+            else runCatching {
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(WEB_URL + "#s3d=" + Uri.encode(json))))
+            }.onFailure { Toast.makeText(ctx, "無法開啟瀏覽器", Toast.LENGTH_SHORT).show() }
+        }) { Text("🧊 3D 模型／下載 STEP（開啟網頁版）") }
+    }
 }
+
+private const val WEB_URL = "https://rboneone-png.github.io/Springs/"
 
 private fun page(js: String, json: String) =
     """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body{margin:0;background:#e9eef0}svg{width:100%;height:auto;display:block;background:#fff}@page{size:A4 landscape;margin:0}</style></head><body><script>$js</script><script>document.body.insertAdjacentHTML('beforeend', DWG.render($json));</script></body></html>"""
