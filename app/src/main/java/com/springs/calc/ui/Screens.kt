@@ -89,7 +89,7 @@ private fun MultiInput(label: String, unit: String, items: SnapshotStateList<Mut
 
 // ================= 壓縮 =================
 @Composable
-fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
+fun CompressionScreen(u: Units, io: FileIo, onDrawing: (String) -> Unit) {
     val d = remember { mutableStateOf(u.def("2", Kind.LEN)) }; val od = remember { mutableStateOf(u.def("16", Kind.LEN)) }
     val na = remember { mutableStateOf("8") }; val l0 = remember { mutableStateOf(u.def("60", Kind.LEN)) }
     val lws = remember { mutableStateListOf(mutableStateOf(u.def("40", Kind.LEN))) }
@@ -100,6 +100,18 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
     val treat = remember { TreatState() }
     val ntar = remember { mutableStateOf("") }; val temp = remember { mutableStateOf("") }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lmaxS to Kind.LEN) + lws.map { it to Kind.LEN })
+    SideEffect {
+        io.reg(0, {
+            treat.putTo(JSONObject()).put("mat", Material.all.indexOf(mat)).put("end", end.key()).put("peen", peened)
+                .putN("d", d, u, Kind.LEN).putN("od", od, u, Kind.LEN).putN("na", na, u, Kind.NONE).putN("l0", l0, u, Kind.LEN)
+                .putList("lw", lws, u, Kind.LEN).putN("lmax", lmaxS, u, Kind.LEN).putN("ntar", ntar, u, Kind.NONE).putN("temp", temp, u, Kind.NONE)
+        }) { o ->
+            mat = matOf(o.optInt("mat")); end = endFromKey(o.optString("end")); peened = o.optBoolean("peen")
+            o.getN("d", d, u, Kind.LEN); o.getN("od", od, u, Kind.LEN); o.getN("na", na, u, Kind.NONE); o.getN("l0", l0, u, Kind.LEN)
+            o.getList("lw", lws, u, Kind.LEN); o.getN("lmax", lmaxS, u, Kind.LEN); o.getN("ntar", ntar, u, Kind.NONE); o.getN("temp", temp, u, Kind.NONE)
+            treat.loadFrom(o)
+        }
+    }
     Hint()
     CompressionDiagram()
     MaterialPicker(u, mat) { mat = it }
@@ -161,7 +173,7 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
 
 // ================= 扭力 =================
 @Composable
-fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
+fun TorsionScreen(u: Units, io: FileIo, onDrawing: (String) -> Unit) {
     val d = remember { mutableStateOf(u.def("2", Kind.LEN)) }; val od = remember { mutableStateOf(u.def("16", Kind.LEN)) }
     val nb = remember { mutableStateOf("6") }; val l1 = remember { mutableStateOf(u.def("30", Kind.LEN)) }
     val l2 = remember { mutableStateOf(u.def("30", Kind.LEN)) }
@@ -175,6 +187,20 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
     var peened by remember { mutableStateOf(false) }
     val treat = remember { TreatState() }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l1 to Kind.LEN, l2 to Kind.LEN, arm to Kind.LEN))
+    SideEffect {
+        io.reg(1, {
+            treat.putTo(JSONObject()).put("mat", Material.all.indexOf(mat)).put("hand", hand).put("peen", peened)
+                .putN("d", d, u, Kind.LEN).putN("od", od, u, Kind.LEN).putN("nb", nb, u, Kind.NONE).putN("arm", arm, u, Kind.LEN)
+                .putN("l1", l1, u, Kind.LEN).putN("l2", l2, u, Kind.LEN).putN("fa", fa, u, Kind.NONE).putList("ang", angs, u, Kind.NONE)
+                .putN("amin", angMin, u, Kind.NONE).putN("ntar", ntar, u, Kind.NONE).putN("temp", temp, u, Kind.NONE)
+        }) { o ->
+            mat = matOf(o.optInt("mat")); hand = o.optInt("hand"); peened = o.optBoolean("peen")
+            o.getN("d", d, u, Kind.LEN); o.getN("od", od, u, Kind.LEN); o.getN("nb", nb, u, Kind.NONE); o.getN("arm", arm, u, Kind.LEN)
+            o.getN("l1", l1, u, Kind.LEN); o.getN("l2", l2, u, Kind.LEN); o.getN("fa", fa, u, Kind.NONE); o.getList("ang", angs, u, Kind.NONE)
+            o.getN("amin", angMin, u, Kind.NONE); o.getN("ntar", ntar, u, Kind.NONE); o.getN("temp", temp, u, Kind.NONE)
+            treat.loadFrom(o)
+        }
+    }
     Hint()
     TorsionDiagram()
     MaterialPicker(u, mat) { mat = it }
@@ -249,7 +275,7 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
 
 // ================= 拉伸 =================
 @Composable
-fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
+fun ExtensionScreen(u: Units, io: FileIo, onDrawing: (String) -> Unit) {
     val d = remember { mutableStateOf(u.def("2", Kind.LEN)) }; val od = remember { mutableStateOf(u.def("16", Kind.LEN)) }
     val na = remember { mutableStateOf("8") }; val l0 = remember { mutableStateOf(u.def("60", Kind.LEN)) }
     val lws = remember { mutableStateListOf(mutableStateOf(u.def("80", Kind.LEN))) }
@@ -266,6 +292,22 @@ fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
     val treat = remember { TreatState() }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lminS to Kind.LEN,
         fi to Kind.FORCE, fm to Kind.FORCE, r1 to Kind.LEN, r2 to Kind.LEN) + lws.map { it to Kind.LEN })
+    SideEffect {
+        io.reg(2, {
+            treat.putTo(JSONObject()).put("mat", Material.all.indexOf(mat)).put("hook", hook).put("peen", peened)
+                .put("fiAuto", fiAuto).put("fmAuto", fmAuto)
+                .putN("d", d, u, Kind.LEN).putN("od", od, u, Kind.LEN).putN("na", na, u, Kind.NONE).putN("l0", l0, u, Kind.LEN)
+                .putN("fi", fi, u, Kind.FORCE).putN("fm", fm, u, Kind.FORCE).putN("r1", r1, u, Kind.LEN).putN("r2", r2, u, Kind.LEN)
+                .putList("lw", lws, u, Kind.LEN).putN("lmin", lminS, u, Kind.LEN).putN("ntar", ntar, u, Kind.NONE).putN("temp", temp, u, Kind.NONE)
+        }) { o ->
+            mat = matOf(o.optInt("mat")); hook = o.optInt("hook"); peened = o.optBoolean("peen")
+            fiAuto = o.optBoolean("fiAuto"); fmAuto = o.optBoolean("fmAuto")
+            o.getN("d", d, u, Kind.LEN); o.getN("od", od, u, Kind.LEN); o.getN("na", na, u, Kind.NONE); o.getN("l0", l0, u, Kind.LEN)
+            o.getN("fi", fi, u, Kind.FORCE); o.getN("fm", fm, u, Kind.FORCE); o.getN("r1", r1, u, Kind.LEN); o.getN("r2", r2, u, Kind.LEN)
+            o.getList("lw", lws, u, Kind.LEN); o.getN("lmin", lminS, u, Kind.LEN); o.getN("ntar", ntar, u, Kind.NONE); o.getN("temp", temp, u, Kind.NONE)
+            treat.loadFrom(o)
+        }
+    }
     // 初張力：預設依線徑與外徑自動計算；使用者可手動修改，按「自動」隨時恢復
     val dSi = d.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) }
     val odSi = od.value.toDoubleOrNull()?.let { u.toSi(it, Kind.LEN) }
@@ -387,7 +429,7 @@ private fun strengthOf(x: Double, bending: Boolean) = Strength(x, if (bending)
 else when { x <= .45 -> Verdict.OK; x <= .65 -> Verdict.CAUTION; else -> Verdict.FAIL })
 
 @Composable
-fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
+fun DesignScreen(u: Units, io: FileIo, onDrawing: (String) -> Unit) {
     var type by rememberSaveable { mutableStateOf(0) }
     var mat by remember { mutableStateOf(Material.all[0]) }
     var end by remember { mutableStateOf(EndType.CLOSED_GROUND) }
@@ -412,6 +454,28 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
     UnitSync(u, listOf(odMax to Kind.LEN, cId to Kind.LEN, cL0 to Kind.LEN, cL1 to Kind.LEN, cF1 to Kind.FORCE, cL2 to Kind.LEN, cF2 to Kind.FORCE,
         eL1 to Kind.LEN, eF1 to Kind.FORCE, eL2 to Kind.LEN, eF2 to Kind.FORCE, tShaft to Kind.LEN, tLen to Kind.LEN, tR to Kind.LEN,
         tA1 to Kind.LEN, tA2 to Kind.LEN, tF1 to Kind.FORCE, tF2 to Kind.FORCE))
+    SideEffect {
+        io.reg(3, {
+            treat.putTo(JSONObject()).put("type", type).put("mat", Material.all.indexOf(mat)).put("c_end", end.key()).put("peen", peened)
+                .putN("odMax", odMax, u, Kind.LEN).putN("c_idMin", cId, u, Kind.LEN).putN("c_l0Max", cL0, u, Kind.LEN)
+                .putN("c_l1", cL1, u, Kind.LEN).putN("c_f1", cF1, u, Kind.FORCE).putN("c_l2", cL2, u, Kind.LEN).putN("c_f2", cF2, u, Kind.FORCE)
+                .putN("e_l1", eL1, u, Kind.LEN).putN("e_f1", eF1, u, Kind.FORCE).putN("e_l2", eL2, u, Kind.LEN).putN("e_f2", eF2, u, Kind.FORCE)
+                .putN("e_hook", eHook, u, Kind.NONE).putN("t_shaft", tShaft, u, Kind.LEN).putN("t_len", tLen, u, Kind.LEN)
+                .putN("t_R", tR, u, Kind.LEN).putN("t_a1", tA1, u, Kind.LEN).putN("t_a2", tA2, u, Kind.LEN)
+                .putN("t_th1", tTh1, u, Kind.NONE).putN("t_f1", tF1, u, Kind.FORCE).putN("t_th2", tTh2, u, Kind.NONE).putN("t_f2", tF2, u, Kind.FORCE)
+                .putN("t_fa", tFa, u, Kind.NONE).putN("nTarget", nTargetS, u, Kind.NONE).putN("tol", tolS, u, Kind.NONE).putN("temp", tempS, u, Kind.NONE)
+        }) { o ->
+            type = o.optInt("type").coerceIn(0, 2); mat = matOf(o.optInt("mat")); end = endFromKey(o.optString("c_end")); peened = o.optBoolean("peen")
+            o.getN("odMax", odMax, u, Kind.LEN); o.getN("c_idMin", cId, u, Kind.LEN); o.getN("c_l0Max", cL0, u, Kind.LEN)
+            o.getN("c_l1", cL1, u, Kind.LEN); o.getN("c_f1", cF1, u, Kind.FORCE); o.getN("c_l2", cL2, u, Kind.LEN); o.getN("c_f2", cF2, u, Kind.FORCE)
+            o.getN("e_l1", eL1, u, Kind.LEN); o.getN("e_f1", eF1, u, Kind.FORCE); o.getN("e_l2", eL2, u, Kind.LEN); o.getN("e_f2", eF2, u, Kind.FORCE)
+            o.getN("e_hook", eHook, u, Kind.NONE); o.getN("t_shaft", tShaft, u, Kind.LEN); o.getN("t_len", tLen, u, Kind.LEN)
+            o.getN("t_R", tR, u, Kind.LEN); o.getN("t_a1", tA1, u, Kind.LEN); o.getN("t_a2", tA2, u, Kind.LEN)
+            o.getN("t_th1", tTh1, u, Kind.NONE); o.getN("t_f1", tF1, u, Kind.FORCE); o.getN("t_th2", tTh2, u, Kind.NONE); o.getN("t_f2", tF2, u, Kind.FORCE)
+            o.getN("t_fa", tFa, u, Kind.NONE); o.getN("nTarget", nTargetS, u, Kind.NONE); o.getN("tol", tolS, u, Kind.NONE); o.getN("temp", tempS, u, Kind.NONE)
+            treat.loadFrom(o)
+        }
+    }
     val types = listOf("壓縮彈簧", "拉伸彈簧", "扭力彈簧")
     Text("依可用空間、彈簧型式、操作位置與力量，計算建議的彈簧規格。", style = MaterialTheme.typography.bodySmall)
     DesignDiagram(type)

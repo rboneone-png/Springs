@@ -49,9 +49,8 @@ private const val WEB_URL = "https://rboneone-png.github.io/Springs/"
 private fun page(js: String, json: String) =
     """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body{margin:0;background:#e9eef0}svg{width:100%;height:auto;display:block;background:#fff}@page{size:A4 landscape;margin:0}</style></head><body><script>$js</script><script>document.body.insertAdjacentHTML('beforeend', DWG.render($json));</script></body></html>"""
 
-private fun printDrawing(ctx: Context, web: WebView) {
+private fun printDrawing(ctx: Context, web: WebView, name: String) {
     val pm = ctx.getSystemService(Context.PRINT_SERVICE) as PrintManager
-    val name = "彈簧工程圖"
     pm.print(name, web.createPrintDocumentAdapter(name),
         PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4.asLandscape()).build())
 }
@@ -59,18 +58,30 @@ private fun printDrawing(ctx: Context, web: WebView) {
 /** 工程圖畫面：與網頁版共用同一份繪圖程式（assets/drawing.js），可縮放檢視，並用系統列印功能存成 PDF */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DrawingScreen(json: String, onClose: () -> Unit) {
+fun DrawingScreen(json: String, fileName: String?, onName: (String) -> Unit, onClose: () -> Unit) {
     BackHandler(onBack = onClose)
     val ctx = LocalContext.current
     val js = remember { ctx.assets.open("drawing.js").bufferedReader().use { it.readText() } }
     var web by remember { mutableStateOf<WebView?>(null) }
+    var askName by remember { mutableStateOf(false) }
+    var typed by remember { mutableStateOf("彈簧工程圖") }
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("工程圖（A4 橫向）") },
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") } },
-                actions = { TextButton(onClick = { web?.let { printDrawing(ctx, it) } }) { Text("列印／存成 PDF") } })
+                actions = { TextButton(onClick = { if (fileName != null) web?.let { printDrawing(ctx, it, fileName) } else askName = true }) { Text("列印／存成 PDF") } })
         },
     ) { pad ->
+        if (askName) AlertDialog(
+            onDismissRequest = { askName = false },
+            title = { Text("輸入檔名") },
+            text = { OutlinedTextField(typed, { typed = it }, singleLine = true, label = { Text("PDF 檔名") }) },
+            confirmButton = { TextButton(onClick = {
+                val n = typed.trim().replace(Regex("[\\\\/:*?\"<>|]"), "_").ifEmpty { "彈簧工程圖" }
+                askName = false; onName(n); web?.let { printDrawing(ctx, it, n) }
+            }) { Text("確定") } },
+            dismissButton = { TextButton(onClick = { askName = false }) { Text("取消") } },
+        )
         AndroidView(modifier = Modifier.padding(pad).fillMaxSize(), factory = { c ->
             WebView(c).apply {
                 settings.javaScriptEnabled = true

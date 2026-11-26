@@ -98,6 +98,15 @@ class TreatState {
         return Treat.HTS[ht] + if (ht > 0 && t != null && m != null) " ${fmtD(t)}°C × ${Treat.fmtMin(m.toInt())}" else if (ht > 0) "（未填溫度／時間）" else ""
     }
 
+    /** 由規格檔還原（欄位名同 putTo） */
+    fun loadFrom(o: JSONObject) {
+        if (o.has("surf")) surf = o.optInt("surf").coerceIn(0, Treat.SURF.size - 1)
+        if (o.has("surfn")) surfn.value = o.optString("surfn", "")
+        if (o.has("ht")) ht = o.optInt("ht").coerceIn(0, Treat.HTS.size - 1)
+        htT.value = if (o.has("htT") && !o.isNull("htT")) fmtPlain(o.optDouble("htT")) else ""
+        htt.value = if (o.has("htt") && !o.isNull("htt")) fmtPlain(o.optDouble("htt")) else ""
+    }
+
     /** 寫入工程圖／3D 用的 JSON 欄位（欄位名同網頁版） */
     fun putTo(o: JSONObject): JSONObject {
         o.put("surf", surf).put("surfn", surfn.value.trim()).put("ht", ht)
