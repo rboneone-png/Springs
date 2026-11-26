@@ -360,11 +360,11 @@
 /* ===== 計算核心（SI：mm、N、MPa、N·mm） ===== */
 const PI=Math.PI;
 const MATS=[
- {n:"琴鋼線 (Music wire)",G:79300,E:206000,A:2211,m:.145,steel:true},
- {n:"油回火鋼線",G:77200,E:203400,A:1855,m:.187,steel:true},
- {n:"不鏽鋼 302/304",G:69000,E:193000,A:1867,m:.146,steel:true},
- {n:"磷青銅",G:41400,E:103400,A:932,m:.064,steel:false},
- {n:"鉻矽鋼線",G:77200,E:203400,A:1974,m:.108,steel:true}];
+ {n:"琴鋼線 (Music wire)",G:79300,E:206000,A:2211,m:.145,tmax:120,steel:true},
+ {n:"油回火鋼線",G:77200,E:203400,A:1855,m:.187,tmax:150,steel:true},
+ {n:"不鏽鋼 302/304",G:69000,E:193000,A:1867,m:.146,tmax:250,steel:true},
+ {n:"磷青銅",G:41400,E:103400,A:932,m:.064,tmax:100,steel:false},
+ {n:"鉻矽鋼線",G:77200,E:203400,A:1974,m:.108,tmax:220,steel:true}];
 const sut=(m,d)=>m.A/Math.pow(d,m.m);
 const ENDS={cg:{n:"閉端磨平",nt:a=>a+2,ls:(a,d)=>(a+2)*d},c:{n:"閉端不磨",nt:a=>a+2,ls:(a,d)=>(a+3)*d},
  o:{n:"開端不磨",nt:a=>a,ls:(a,d)=>(a+1)*d},og:{n:"開端磨平",nt:a=>a+1,ls:(a,d)=>(a+1)*d}};

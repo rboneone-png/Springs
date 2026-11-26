@@ -38,9 +38,11 @@ fun <T> Dropdown(label: String, items: List<T>, selected: T, text: (T) -> String
 }
 
 @Composable
-fun MaterialPicker(units: Units, selected: Mat, onSelect: (Mat) -> Unit) =
+fun MaterialPicker(units: Units, selected: Mat, onSelect: (Mat) -> Unit) = Column {
     Dropdown("材質", Mat.all, selected,
         { "${it.name}  G=${units.modulus(it.g)} E=${units.modulus(it.e)}" }, onSelect)
+    Text("建議最高使用溫度：約 ${selected.tmax}°C（超過後鬆弛與剛度下降明顯；僅供參考，以線材商規格為準）", style = MaterialTheme.typography.bodySmall)
+}
 
 @Composable
 fun Row2(a: @Composable () -> Unit, b: @Composable () -> Unit) =

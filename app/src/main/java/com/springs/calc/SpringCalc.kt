@@ -5,16 +5,16 @@ import kotlin.math.pow
 
 /** 單位：長度 mm、力 N、應力/模數 MPa、扭矩 N·mm */
 /** a, m：抗拉強度 Sut = a / d^m (MPa, d 以 mm)；steel：疲勞係數是否適用 */
-data class Material(val name: String, val g: Double, val e: Double, val a: Double, val m: Double, val steel: Boolean = true) {
+data class Material(val name: String, val g: Double, val e: Double, val a: Double, val m: Double, val tmax: Int, val steel: Boolean = true) {
     fun sut(d: Double) = a / Math.pow(d, m)
 
     companion object {
         val all = listOf(
-            Material("琴鋼線 (Music wire)", 79300.0, 206000.0, 2211.0, 0.145),
-            Material("油回火鋼線", 77200.0, 203400.0, 1855.0, 0.187),
-            Material("不鏽鋼 302/304", 69000.0, 193000.0, 1867.0, 0.146),
-            Material("磷青銅", 41400.0, 103400.0, 932.0, 0.064, steel = false),
-            Material("鉻矽鋼線", 77200.0, 203400.0, 1974.0, 0.108),
+            Material("琴鋼線 (Music wire)", 79300.0, 206000.0, 2211.0, 0.145, tmax=120),
+            Material("油回火鋼線", 77200.0, 203400.0, 1855.0, 0.187, tmax=150),
+            Material("不鏽鋼 302/304", 69000.0, 193000.0, 1867.0, 0.146, tmax=250),
+            Material("磷青銅", 41400.0, 103400.0, 932.0, 0.064, 100, steel = false),
+            Material("鉻矽鋼線", 77200.0, 203400.0, 1974.0, 0.108, tmax=220),
         )
     }
 }
