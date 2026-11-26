@@ -408,6 +408,7 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
     val tFa = remember { mutableStateOf("180") }
     val treat = remember { TreatState() }
     val nTargetS = remember { mutableStateOf("100000") }; val tolS = remember { mutableStateOf("5") }
+    val tempS = remember { mutableStateOf("") }
     UnitSync(u, listOf(odMax to Kind.LEN, cId to Kind.LEN, cL0 to Kind.LEN, cL1 to Kind.LEN, cF1 to Kind.FORCE, cL2 to Kind.LEN, cF2 to Kind.FORCE,
         eL1 to Kind.LEN, eF1 to Kind.FORCE, eL2 to Kind.LEN, eF2 to Kind.FORCE, tShaft to Kind.LEN, tLen to Kind.LEN, tR to Kind.LEN,
         tA1 to Kind.LEN, tA2 to Kind.LEN, tF1 to Kind.FORCE, tF2 to Kind.FORCE))
@@ -441,7 +442,8 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
             NumField("自由角度 α0（兩腳夾角，用於工程圖與 3D）", "度", tFa)
         }
     }
-    Row2({ NumField("目標壽命（空白＝不要求）", "次", nTargetS) }, { NumField("力量容許誤差", "%", tolS) })
+    Row2({ NumField("目標壽命（空白＝不要求；同時用於衰減預估）", "次", nTargetS) }, { NumField("力量容許誤差", "%", tolS) })
+    NumField("使用溫度（空白＝室溫 20°C）", "°C", tempS)
     PeenedSwitch(peened) { peened = it }
     TreatFields(matIdxOf(mat), treat)
 
@@ -450,6 +452,7 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
     val nT = nTargetS.value.toDoubleOrNull()?.takeIf { it > 0 } ?: 0.0
     var err: String? = null; var res: SpringCalc.DesignResult? = null
     var mk: ((SpringCalc.DesignCand) -> String)? = null
+    var dzL2 = 0.0
     val imp = u == Units.IMPERIAL; val matIdx = Material.all.indexOf(mat)
     if (odV == null || odV <= 0) err = "請輸入外徑上限"
     else when (type) {
@@ -458,6 +461,7 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
             if (l1 == null || f1 == null || l2 == null || f2 == null) err = "請輸入完整的位置與力量"
             else if (!(l1 > l2 && l2 > 0 && f2 > f1 && f1 >= 0)) err = "需滿足：安裝長度 L1 > 工作長度 L2 > 0，且 F2 > F1 ≥ 0"
             else {
+                dzL2 = l2
                 res = SpringCalc.designCompression(SpringCalc.CompSpec(mat, end, odV, opt(cId), opt(cL0), l1, f1, l2, f2, peened, nT, tol))
                 mk = { c -> treat.putTo(JSONObject()).put("type", 0).put("imp", imp).put("mat", matIdx).put("peen", peened).put("end", end.key())
                     .put("d", c.d).put("od", c.dm + c.d).put("na", c.na).put("l0", c.v["L0"] ?: 0.0).put("lw", JSONArray(listOf(l1, l2))).toString() }
@@ -528,7 +532,12 @@ fun DesignScreen(u: Units, onDrawing: (String) -> Unit) {
                 sRow("強度判定 σ/Sut", strengthOf(g("ratio"), true)), "扭緊後內徑" to "${f(u.lenOut(g("idW")), 2)} ${u.len}",
                 "預估壽命" to lifeText(g("N"), g("below") > 0, "無限壽命 (>10⁶ 次)"))
         }
-        ResultCard(rows, c.fails.map { "不符：$it" } + c.warns, title = title)
+        val rx = when (type) {
+            0 -> relaxInfo(u, matIdx, 0, g("ratio"), g("N"), g("below") > 0, g("F2"), g("L0") - dzL2, nTargetS.value, tempS.value)
+            1 -> relaxInfo(u, matIdx, 2, g("rB"), g("N"), g("below") > 0, g("F2"), g("F2") / g("k"), nTargetS.value, tempS.value)
+            else -> relaxInfo(u, matIdx, 1, g("ratio") * 0.45 / 0.65, g("N"), g("below") > 0, g("F2"), g("thTot"), nTargetS.value, tempS.value)
+        }
+        ResultCard(rows + rx.first, c.fails.map { "不符：$it" } + c.warns + rx.second, title = title)
         mk?.let { f -> DrawingButton(onDrawing) { f(c) } }
     }
     Text("設計假設：線徑取常用規格系列，中徑以 0.25 mm 掃描，圈數取 0.25 圈的倍數。壓縮：壓並力需 ≥ 1.15×工作力、旋繞比 4～12、剪應力 ≤ 0.65Sut；" +
