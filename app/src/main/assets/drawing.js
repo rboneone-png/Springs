@@ -368,6 +368,14 @@ const MATS=[
 const sut=(m,d)=>m.A/Math.pow(d,m.m);
 const ENDS={cg:{n:"閉端磨平",nt:a=>a+2,ls:(a,d)=>(a+2)*d},c:{n:"閉端不磨",nt:a=>a+2,ls:(a,d)=>(a+3)*d},
  o:{n:"開端不磨",nt:a=>a,ls:(a,d)=>(a+1)*d},og:{n:"開端磨平",nt:a=>a+1,ls:(a,d)=>(a+1)*d}};
+/* ===== 目標次數後的衰減（鬆弛）預估：經驗模型，非標準公式，分散性大，不能取代實測 =====
+ * 負荷損失 = 基準損失(材質) × (應力比/0.45)³ × 次數係數 × 溫度係數
+ *   基準損失：應力比 0.45、10⁶ 次、20°C 的負荷損失百分比（琴鋼線 2.0、油回火 2.5、不鏽鋼 3.5、磷青銅 5.0、鉻矽鋼 1.5）
+ *   次數係數 = log10(N)/6（限 0.05～1.5）；溫度係數 = 3^((T−20)/(Tmax−20))，Tmax 為該材質建議最高使用溫度 */
+const RLX=[2.0,2.5,3.5,5.0,1.5];
+function relaxLoss(mi,ratio,N,T){const m=MATS[mi]||MATS[0],t=Number.isFinite(T)?Math.max(T,20):20,tf=Math.pow(3,(t-20)/(m.tmax-20)),
+ nf=Math.min(Math.max(Math.log10(Math.max(N,10))/6,.05),1.5),rf=Math.pow(Math.max(ratio,0)/.45,3);
+ return {loss:Math.min(RLX[mi]*rf*nf*tf/100,.6),tf,hot:t>m.tmax,tmax:m.tmax}}
 const wahl=c=>(4*c-1)/(4*c-4)+.615/c;
 const shear=(f,D,d)=>wahl(D/d)*8*f*D/(PI*d**3);
 const rate=(G,d,D,na)=>G*d**4/(8*D**3*na);

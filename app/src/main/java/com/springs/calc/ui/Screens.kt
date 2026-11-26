@@ -45,6 +45,32 @@ private fun PeenedSwitch(v: Boolean, on: (Boolean) -> Unit) {
     )
 }
 
+/** 目標次數後的衰減：kind 0 壓縮、1 扭力、2 拉伸；未填目標次數則回傳空 */
+private fun relaxInfo(u: Units, mi: Int, kind: Int, ratio: Double, estN: Double, estBelow: Boolean, load: Double, span: Double,
+                      nTar: String, temp: String): Pair<List<Pair<String, String>>, List<String>> {
+    val n = nTar.toDoubleOrNull()?.takeIf { it > 0 } ?: return emptyList<Pair<String, String>>() to emptyList()
+    val t = temp.toDoubleOrNull() ?: 20.0
+    val r = SpringCalc.relaxLoss(mi, ratio, n, t)
+    val okLife = estN.isInfinite() || (!estBelow && estN >= n)
+    val rows = mutableListOf("目標循環次數" to "${fmtCycles(n)} 次",
+        "壽命是否達標" to if (okLife) "✔ 達標" else "✘ 不足（預估 ${lifeText(estN, estBelow, "")}）",
+        "預估負荷損失（鬆弛）" to "${f(r.loss * 100, 1)} %", "　衰減後負荷" to "${f(u.forceOut(load * (1 - r.loss)))} ${u.force}")
+    rows.add(when (kind) {
+        0 -> "　自由長縮短（永久變形）" to "${f(u.lenOut(r.loss * span), 3)} ${u.len}"
+        2 -> "　自由長增加（永久伸長）" to "${f(u.lenOut(r.loss * span), 3)} ${u.len}"
+        else -> "　自由角度減少" to "${f(r.loss * span, 2)} 度"
+    })
+    val w = mutableListOf<String>()
+    if (!okLife) w.add("預估疲勞壽命低於目標次數，在目標次數前可能斷裂")
+    if (r.hot) w.add("使用溫度 ${f(t, 0)}°C 超過此材質建議最高 ${r.tmax}°C，鬆弛與剛度下降會更嚴重，此估算不可靠")
+    if (r.loss >= .1) w.add("預估負荷損失 ≥ 10%：建議降低應力、加預壓（除應力）處理或換材質")
+    return rows to w
+}
+
+@Composable
+private fun RelaxFields(nTar: MutableState<String>, temp: MutableState<String>) =
+    Row2({ NumField("目標循環次數（空白＝不評估衰減）", "次", nTar) }, { NumField("使用溫度（空白＝室溫 20°C）", "°C", temp) })
+
 /** 可新增/刪除的多筆輸入（工作長度、扭轉角） */
 @Composable
 private fun MultiInput(label: String, unit: String, items: SnapshotStateList<MutableState<String>>, addText: String) {
@@ -72,6 +98,7 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
     val lmaxS = remember { mutableStateOf("") }
     var peened by remember { mutableStateOf(false) }
     val treat = remember { TreatState() }
+    val ntar = remember { mutableStateOf("") }; val temp = remember { mutableStateOf("") }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lmaxS to Kind.LEN) + lws.map { it to Kind.LEN })
     Hint()
     CompressionDiagram()
@@ -81,6 +108,7 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
     Row2({ NumField("有效圈數 Na", "圈", na) }, { NumField("自由長 L0", u.len, l0) })
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
     NumField("壽命測試按壓回覆位置（循環最大長度，空白＝自由長）", u.len, lmaxS)
+    RelaxFields(ntar, temp)
     PeenedSwitch(peened) { peened = it }
     TreatFields(Material.all.indexOf(mat), treat)
     DrawingButton(onDrawing) {
@@ -113,8 +141,9 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
             val tauMin = if (lMaxSi < l0Si) SpringCalc.shear(r.k * (l0Si - lMaxSi), r.dm, dSi) else 0.0
             val fat = SpringCalc.fatigue(r.stress, tauMin, dSi, mat, peened)
             val str = SpringCalc.strengthShear(r.stress, fat.sut)
+            val rx = relaxInfo(u, Material.all.indexOf(mat), 0, r.stress / fat.sut, fat.cycles, fat.belowThousand, r.load, l0Si - lwSi, ntar.value, temp.value)
             val extraW = fat.warnings + sWarn("工作時", str) +
-                if (lwSi > lMaxSi) listOf("工作長度大於回彈長度，循環定義不合理") else emptyList()
+                (if (lwSi > lMaxSi) listOf("工作長度大於回彈長度，循環定義不合理") else emptyList()) + rx.second
             ResultCard(listOf(
                 "壓縮量 (L0−L)" to "${f(u.lenOut(l0Si - lwSi), 3)} ${u.len}",
                 "工作負荷 F" to "${f(u.forceOut(r.load))} ${u.force}",
@@ -124,7 +153,7 @@ fun CompressionScreen(u: Units, onDrawing: (String) -> Unit) {
                 "靜態安全係數" to sf(fat.staticSf),
                 "疲勞安全係數 (10⁷)" to sf(fat.fatigueSf),
                 "預估壽命" to lifeText(fat.cycles, fat.belowThousand, "無限壽命 (>10⁷ 次)"),
-            ), r.warnings.filter { it.startsWith("工作長度") } + extraW, title = "L${i + 1} = ${f(lw, 2)} ${u.len}")
+            ) + rx.first, r.warnings.filter { it.startsWith("工作長度") } + extraW, title = "L${i + 1} = ${f(lw, 2)} ${u.len}")
         }
     }
     TreatCard(Material.all.indexOf(mat), treat)
@@ -142,6 +171,7 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
     val angMin = remember { mutableStateOf("0") }
     val fa = remember { mutableStateOf("180") }
     var hand by remember { mutableStateOf(0) }
+    val ntar = remember { mutableStateOf("") }; val temp = remember { mutableStateOf("") }
     var peened by remember { mutableStateOf(false) }
     val treat = remember { TreatState() }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l1 to Kind.LEN, l2 to Kind.LEN, arm to Kind.LEN))
@@ -155,6 +185,7 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
     Dropdown("旋向（沿軸線方向看的纏繞方向；扭緊時兩腳夾角變小）", listOf(0, 1), hand, { if (it == 0) "右旋（右手螺旋）" else "左旋（左手螺旋）" }) { hand = it }
     MultiInput("扭轉角 θ", "度", angs, "新增扭轉角")
     NumField("壽命測試按壓回覆的位置角度（預載，0＝完全放鬆）", "度", angMin)
+    RelaxFields(ntar, temp)
     PeenedSwitch(peened) { peened = it }
     TreatFields(Material.all.indexOf(mat), treat)
     DrawingButton(onDrawing) {
@@ -196,8 +227,9 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
             val sigMin = if (angle > 0) r.stress * aMin / angle else 0.0
             val fat = SpringCalc.fatigueBending(r.stress, sigMin, dSi, mat, peened)
             val str = SpringCalc.strengthBending(r.stress, sut)
+            val rx = relaxInfo(u, Material.all.indexOf(mat), 1, r.stress / sut * 0.45 / 0.65, fat.cycles, fat.belowThousand, r.force, angle, ntar.value, temp.value)
             val extraW = fat.warnings + sWarn("工作時", str) +
-                if (aMin >= angle) listOf("最小角度需小於工作扭轉角") else emptyList()
+                (if (aMin >= angle) listOf("最小角度需小於工作扭轉角") else emptyList()) + rx.second
             ResultCard(listOf(
                 "工作時兩腳夾角（α0－θ）" to "${f(faV - angle, 1)} 度",
                 "扭矩 M" to "${f(u.torqueOut(r.torque), 2)} ${u.torque}",
@@ -209,7 +241,7 @@ fun TorsionScreen(u: Units, onDrawing: (String) -> Unit) {
                 "靜態安全係數" to sf(fat.staticSf),
                 "疲勞安全係數 (10⁶)" to sf(fat.fatigueSf),
                 "預估壽命" to lifeText(fat.cycles, fat.belowThousand, "無限壽命 (>10⁶ 次)"),
-            ), r.warnings + extraW, title = "θ${i + 1} = ${f(angle, 1)}°")
+            ) + rx.first, r.warnings + extraW, title = "θ${i + 1} = ${f(angle, 1)}°")
         }
     }
     TreatCard(Material.all.indexOf(mat), treat)
@@ -230,6 +262,7 @@ fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
     var peened by remember { mutableStateOf(false) }
     var mat by remember { mutableStateOf(Material.all[0]) }
     var hook by remember { mutableStateOf(0) }
+    val ntar = remember { mutableStateOf("") }; val temp = remember { mutableStateOf("") }
     val treat = remember { TreatState() }
     UnitSync(u, listOf(d to Kind.LEN, od to Kind.LEN, l0 to Kind.LEN, lminS to Kind.LEN,
         fi to Kind.FORCE, fm to Kind.FORCE, r1 to Kind.LEN, r2 to Kind.LEN) + lws.map { it to Kind.LEN })
@@ -280,6 +313,7 @@ fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
     Text("兩種鉤的上下兩鉤都共面（平行）；圓環鉤＝環立在線圈端、連接線橫越線圈中央。", style = MaterialTheme.typography.bodySmall)
     MultiInput("工作長度 L", u.len, lws, "新增工作長度")
     NumField("壽命測試按壓回覆位置（空白＝自由長，此時負荷＝初張力）", u.len, lminS)
+    RelaxFields(ntar, temp)
     PeenedSwitch(peened) { peened = it }
     TreatFields(Material.all.indexOf(mat), treat)
     DrawingButton(onDrawing) {
@@ -327,6 +361,7 @@ fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
             val bS = SpringCalc.strengthShear(r.stress, sut)
             val hS = SpringCalc.strengthBending(r.hookBending, sut)
             val tS = SpringCalc.strengthShear(r.hookTorsion, sut)
+            val rx = relaxInfo(u, Material.all.indexOf(mat), 2, r.stress / sut, ef.cycles, ef.belowThousand, r.load, r.load / r.k, ntar.value, temp.value)
             ResultCard(listOf(
                 "工作負荷 F" to "${f(u.forceOut(r.load))} ${u.force}",
                 "本體剪應力 τ" to "${f(u.stressOut(r.stress), 1)} ${u.stress}", sRow("　判定 τ/Sut", bS),
@@ -336,8 +371,8 @@ fun ExtensionScreen(u: Units, onDrawing: (String) -> Unit) {
                 "壽命：鉤環彎曲" to lifeText(ef.hookBend.cycles, ef.hookBend.belowThousand, "無限 (>10⁶ 次)"),
                 "壽命：鉤側彎扭轉" to lifeText(ef.hookTors.cycles, ef.hookTors.belowThousand, "無限 (>10⁷ 次)"),
                 "預估壽命（取最短：${ef.governing}）" to lifeText(ef.cycles, ef.belowThousand, "無限壽命"),
-            ), r.warnings.filter { it.startsWith("工作長度") || it.startsWith("負荷小於") } + ef.warnings +
-                sWarn("本體", bS) + sWarn("鉤環彎曲", hS) + sWarn("鉤側彎", tS),
+            ) + rx.first, r.warnings.filter { it.startsWith("工作長度") || it.startsWith("負荷小於") } + ef.warnings +
+                sWarn("本體", bS) + sWarn("鉤環彎曲", hS) + sWarn("鉤側彎", tS) + rx.second,
                 title = "L${i + 1} = ${f(lw, 2)} ${u.len}")
         }
     }

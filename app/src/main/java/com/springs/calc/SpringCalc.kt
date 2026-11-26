@@ -194,6 +194,19 @@ object SpringCalc {
      * Shigley 建議的初應力範圍：τi = 33.5 ksi / exp(0.105C) ± 1 ksi·(4 − (C−3)/6.5)，C = D/d；
      * 初張力 Fi = π·d³·τi / (8·D)（初應力不含 Wahl 修正）。fi 取範圍中值。
      */
+    /** 目標次數後的衰減（鬆弛）預估：經驗模型，非標準公式，分散性大。
+     *  負荷損失 = 基準損失(材質) × (應力比/0.45)³ × 次數係數 × 溫度係數；與網頁版 relaxLoss 相同。 */
+    private val RLX = doubleArrayOf(2.0, 2.5, 3.5, 5.0, 1.5)
+    class Relax(val loss: Double, val hot: Boolean, val tmax: Int)
+    fun relaxLoss(mi: Int, ratio: Double, n: Double, temp: Double?): Relax {
+        val m = Material.all.getOrElse(mi) { Material.all[0] }
+        val t = Math.max(temp ?: 20.0, 20.0)
+        val tf = Math.pow(3.0, (t - 20) / (m.tmax - 20))
+        val nf = Math.min(Math.max(Math.log10(Math.max(n, 10.0)) / 6, 0.05), 1.5)
+        val rf = Math.pow(Math.max(ratio, 0.0) / 0.45, 3.0)
+        return Relax(Math.min(RLX[mi] * rf * nf * tf / 100, 0.6), t > m.tmax, m.tmax)
+    }
+
     fun initialTension(d: Double, dm: Double): InitTension {
         val c = dm / d
         val tau = 33.5 * 6.894757 / Math.exp(0.105 * c)
